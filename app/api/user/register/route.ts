@@ -11,6 +11,11 @@ export const runtime = "nodejs";
 const objectIdRegex = /^[a-f\d]{24}$/i;
 
 const registerUserSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, "Name must be at least 2 characters")
+    .transform((value) => value.replace(/\s+/g, " ")),
   mobileNumber: z.string().trim().min(8, "Mobile number must be at least 8 characters"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   organizationId: z.string().trim().regex(objectIdRegex, "Invalid organization id"),
@@ -34,7 +39,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { mobileNumber, password, organizationId, role, isActive } = parsed.data;
+    const { name, mobileNumber, password, organizationId, role, isActive } =
+      parsed.data;
     await connectToDatabase();
 
     const normalizedMobileNumber = mobileNumber.replace(/\s+/g, "");
@@ -64,6 +70,7 @@ export async function POST(request: NextRequest) {
     }
 
     const user = await StoreAdminUser.create({
+      name,
       mobileNumber: normalizedMobileNumber,
       password,
       organizationId: orgObjectId,
@@ -77,6 +84,7 @@ export async function POST(request: NextRequest) {
         message: "User registered successfully",
         data: {
           id: user._id,
+          name: user.name,
           mobileNumber: user.mobileNumber,
           organizationId: user.organizationId,
           role: user.role,

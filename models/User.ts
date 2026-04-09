@@ -4,6 +4,7 @@ import { ORGANIZATION_ROLES, type OrganizationRole } from "./rbac";
 
 export interface IStoreAdminUser {
   _id?: mongoose.Types.ObjectId;
+  name: string;
   mobileNumber: string;
   password: string;
   organizationId: mongoose.Types.ObjectId;
@@ -16,6 +17,7 @@ export interface IStoreAdminUser {
 
 const storeAdminUserSchema = new Schema<IStoreAdminUser>(
   {
+    name: { type: String, required: true, trim: true },
     mobileNumber: { type: String, required: true, trim: true },
     password: { type: String, required: true },
     organizationId: {
