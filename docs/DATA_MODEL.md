@@ -10,7 +10,7 @@ This document describes how **organizations**, **store users**, **farmers**, **l
 
 ## High-level design
 
-The app is **multi-tenant**: all business data is scoped to an **organization**. Store users, farmers, lands, lifecycle events, reminders, report metadata, and chat messages are all tenant-scoped through `organizationId`.
+The app is **multi-tenant**: all business data is scoped to an **organization**. Store users, farmers, lands, seed processing, dispatch, receipt, farmer seed distribution, lifecycle events, reminders, report metadata, and chat messages are all tenant-scoped through `organizationId`.
 
 ```mermaid
 erDiagram
@@ -18,6 +18,11 @@ erDiagram
   Organization ||--o{ Farmer : "has farmers"
   Farmer ||--o{ Land : "has lands"
   Land ||--|| LandLifecycle : "has one lifecycle"
+  Organization ||--o{ SeedProcessingBatch : "processes seed lots"
+  SeedProcessingBatch ||--o{ SeedDispatch : "dispatches in trucks"
+  SeedDispatch ||--o{ SeedReceipt : "received at distribution points"
+  SeedReceipt ||--o{ FarmerSeedDistribution : "issued to farmers"
+  Land ||--o{ FarmerSeedDistribution : "receives distributed seed"
   Land ||--o{ Reminder : "has reminders"
   Farmer ||--o{ FarmerReport : "has reports"
   StoreAdminUser ||--o{ ChatMessage : "sends/receives messages"
@@ -66,22 +71,75 @@ erDiagram
     ObjectId organizationId FK
     ObjectId farmerId FK
     ObjectId landId FK
+    string cycleId
+    string season
+    number year
+    string crop
     array plantationEntries
     array irrigationEntries
     array roguingEntries
-    array visitReports
+    array stripTestEntries
     array dehalmingEntries
+    date dehaulmingDate
+    date harvestPlannedDate
+    date actualPlantingStart
     date createdAt
     date updatedAt
+  }
+  SeedProcessingBatch {
+    ObjectId _id
+    ObjectId organizationId FK
+    string batchNumber
+    array inputLots
+    object qualityGate
+    object bagWeightTolerance
+    array outputLots
+    string status
+  }
+  SeedDispatch {
+    ObjectId _id
+    ObjectId organizationId FK
+    ObjectId seedProcessingBatchId FK
+    string dispatchNumber
+    string truckNumber
+    object preDispatchWeighment
+    array lineItems
+    object documents
+    string status
+  }
+  SeedReceipt {
+    ObjectId _id
+    ObjectId organizationId FK
+    ObjectId dispatchId FK
+    string receiptNumber
+    array lineItems
+    array issues
+    boolean hasDiscrepancy
+    string status
+  }
+  FarmerSeedDistribution {
+    ObjectId _id
+    ObjectId organizationId FK
+    ObjectId farmerId FK
+    ObjectId landId FK
+    string cycleId
+    ObjectId seedReceiptId FK
+    ObjectId seedDispatchId FK
+    array lineItems
+    object storageGeoLocation
+    string status
   }
   Reminder {
     ObjectId _id
     ObjectId organizationId FK
     ObjectId farmerId FK
     ObjectId landId FK
+    string cycleId
     string reminderType
     date dueDate
     string status
+    number escalationLevel
+    ObjectId assignedToUserId FK
     date completedAt
     date dismissedAt
   }
@@ -207,13 +265,113 @@ One `LandLifecycle` document maps to one `Land` (`landId` unique).
 | `organizationId` | `ObjectId` | Tenant scope. |
 | `farmerId` | `ObjectId` | Link to farmer owning the land. |
 | `landId` | `ObjectId` | Unique link to `Land`. |
-| `plantationEntries[]` | array | Plantation date, variety, size, quantity, notes, recorded-by user. |
+| `cycleId` | `string` | Optional lifecycle/crop cycle identifier (for backward compatibility). |
+| `season`, `year`, `crop` | `string`, `number`, `string` | Cycle metadata used to group monitoring and reporting by crop season. |
+| `plannedPlantingWindow` | embedded object | Optional `startDate`/`endDate` planning window. |
+| `actualPlantingStart`, `dehaulmingDate`, `harvestPlannedDate` | `Date` | Anchor dates for crop monitoring and harvest planning. |
+| `plantationEntries[]` | array | Plantation date, variety, size, quantity, basal fertilizer, pre-irrigation, field geolocation, planting depth/spacing/pattern, bags used, notes, recorded-by user. |
 | `irrigationEntries[]` | array | Irrigation date, notes, photos/videos, optional admin/manager instructions, review metadata. |
-| `roguingEntries[]` | array | Roguing date, results, observations, recorded-by user. |
-| `visitReports[]` | array | Visit logs with `visitType` (`strip_test_1` or `strip_test_2`), result, observations. |
+| `roguingEntries[]` | array | Roguing date, observations, virus-infected and mixed-variety counts, germination percentage, quality assessment report reference. |
+| `stripTestEntries[]` | array | Strip-test measurements (length/area, tuber counts and weight, ratio) with dehaulming-readiness decision fields. |
 | `dehalmingEntries[]` | array | Dehalming date, notes, recorded-by user. |
 
-This model captures PRD section 5 (Plantation, Irrigation, Roguing, Visit Reporting, Dehalming, Final Visit).
+This model captures PRD planting-through-harvest checkpoints (planting details, irrigation, roguing quality, strip-test maturity assessment, dehaulming, and harvest planning).
+
+---
+
+## Seed Processing Batch
+
+**File**: `models/SeedProcessingBatch.ts`  
+**Interface**: `ISeedProcessingBatch`
+
+Tracks seed retrieval and preparation workflows before dispatch.
+
+| Field | Type | Purpose |
+|--------|------|--------|
+| `organizationId` | `ObjectId` | Tenant scope. |
+| `batchNumber` | `string` | Organization-scoped unique batch identifier. |
+| `sourceColdStorageName` | `string` | Optional source location for retrieved seed bags. |
+| `inputLots[]` | array | Lot-wise input (`lotNumber`, variety, size, bag count, total weight). |
+| `sortingNotes` | `string` | Notes from sorting and defect removal stage. |
+| `treatmentChemicalVolumeMl` | `number` | Treatment chemical usage record. |
+| `treatmentAppliedAt`, `treatmentDriedAt` | `Date` | Treatment and post-treatment drying checkpoints. |
+| `qualityGate` | embedded object | Decision (`accepted`, `resort`, `rejected`) + reason/issue report + actor/timestamp. |
+| `bagWeightTolerance` | embedded object | Target/min/max bag weight thresholds for packing QC. |
+| `outputLots[]` | array | Prepared output lots ready for dispatch. |
+| `status` | `string` | `draft`, `processing`, `quality_hold`, `packed`, `ready_for_dispatch`. |
+
+**Indexes**: unique `{ organizationId, batchNumber }`, plus `{ organizationId, status, createdAt }`.
+
+---
+
+## Seed Dispatch
+
+**File**: `models/SeedDispatch.ts`  
+**Interface**: `ISeedDispatch`
+
+Tracks dispatch, truck assignment, and transport documentation.
+
+| Field | Type | Purpose |
+|--------|------|--------|
+| `organizationId` | `ObjectId` | Tenant scope. |
+| `seedProcessingBatchId` | `ObjectId` | Optional link to source processing batch. |
+| `dispatchNumber` | `string` | Organization-scoped unique dispatch identifier. |
+| `truckNumber` | `string` | Assigned vehicle number. |
+| `driverName`, `driverMobileNumber` | `string` | Driver contact details. |
+| `originLocation`, `destinationLocation` | `string` | Dispatch route metadata. |
+| `preDispatchWeighment` | embedded object | Tare/gross/net weights and measurement timestamp. |
+| `documents` | embedded object | `dispatchSlipUrl`, `weightSlipUrl`. |
+| `lineItems[]` | array | Lot-wise material dispatched (variety/size/bags/net weight). |
+| `status` | `string` | `draft`, `ready_to_load`, `loaded`, `dispatched`, `in_transit`, `delivered`. |
+
+**Indexes**: unique `{ organizationId, dispatchNumber }`, plus `{ organizationId, status, createdAt }`.
+
+---
+
+## Seed Receipt
+
+**File**: `models/SeedReceipt.ts`  
+**Interface**: `ISeedReceipt`
+
+Tracks receipt verification at the distribution point.
+
+| Field | Type | Purpose |
+|--------|------|--------|
+| `organizationId` | `ObjectId` | Tenant scope. |
+| `dispatchId` | `ObjectId` | Required reference to dispatch record. |
+| `receiptNumber` | `string` | Organization-scoped unique receipt identifier. |
+| `receiverName`, `receiverMobileNumber` | `string` | Receiver details for acknowledgement. |
+| `receivedAt`, `acknowledgedAt` | `Date` | Receipt and acknowledgement timestamps. |
+| `hasDiscrepancy` | `boolean` | Quick flag for damaged/mismatched consignments. |
+| `issues[]` | array | Structured discrepancy log (type, description, actor, timestamp). |
+| `lineItems[]` | array | Received lot-wise counts/weights and stack location labels. |
+| `status` | `string` | `pending_verification`, `verified`, `discrepancy_reported`, `closed`. |
+
+**Indexes**: unique `{ organizationId, receiptNumber }`, plus `{ organizationId, status, createdAt }`.
+
+---
+
+## Farmer Seed Distribution
+
+**File**: `models/FarmerSeedDistribution.ts`  
+**Interface**: `IFarmerSeedDistribution`
+
+Tracks seed issue to farmers as an explicit acknowledgement artifact.
+
+| Field | Type | Purpose |
+|--------|------|--------|
+| `organizationId` | `ObjectId` | Tenant scope. |
+| `farmerId`, `landId` | `ObjectId` | Target farmer and land receiving seed. |
+| `cycleId` | `string` | Required cycle link to reconcile planting and monitoring records. |
+| `seedReceiptId`, `seedDispatchId` | `ObjectId` | Optional upstream references for traceability. |
+| `issueDate` | `Date` | Seed distribution date. |
+| `lineItems[]` | array | Lot-wise issue details (bags and weight). |
+| `storageGeoLocation` | embedded object | Farmer storage latitude/longitude. |
+| `farmerAcknowledgedAt` | `Date` | Farmer receipt acknowledgement timestamp. |
+| `status` | `string` | `issued`, `acknowledged`, `disputed`. |
+| `issuedByUserId` | `ObjectId` | User who issued seed to farmer. |
+
+**Indexes**: `{ organizationId, cycleId, landId, issueDate }`, `{ organizationId, status, createdAt }`.
 
 ---
 
@@ -229,13 +387,17 @@ Stores generated reminder events tied to land lifecycle timing.
 | `organizationId` | `ObjectId` | Tenant scope. |
 | `farmerId` | `ObjectId` | Farmer target. |
 | `landId` | `ObjectId` | Land target. |
-| `reminderType` | `string` | One of `first_visit`, `roguing`, `strip_test`, `final_follow_up`. |
+| `cycleId` | `string` | Optional cycle link for cycle-aware reminder filtering. |
+| `reminderType` | `string` | `first_visit`, `roguing`, `strip_test`, `final_follow_up`, `seed_prep_qc_hold`, `dispatch_follow_up`, `receipt_discrepancy_closure`, `dehaulming_readiness`, `harvest_scheduling`. |
 | `dueDate` | `Date` | Reminder due timestamp. |
 | `status` | `string` | `pending`, `completed`, or `dismissed`. |
+| `escalationLevel` | `number` | Optional escalation depth for unresolved events. |
+| `assignedToUserId` | `ObjectId` | Optional owner of reminder action. |
 | `completedAt` / `dismissedAt` | `Date` | Optional completion or dismissal audit fields. |
 | `notes` | `string` | Optional notes. |
 
 **Unique constraint**: `{ organizationId, landId, reminderType, dueDate }`.
+**Operational index**: `{ organizationId, cycleId, status, dueDate }`.
 
 ---
 
@@ -332,7 +494,11 @@ Keep transactional consistency in mind (MongoDB transactions or careful ordering
 | `models/User.ts` | Store admin user schema, password hook, compound unique index. |
 | `models/Farmer.ts` | Farmer schema and org membership. |
 | `models/Land.ts` | Land schema linked to farmer + organization. |
-| `models/LandLifecycle.ts` | Land-level lifecycle tracking arrays. |
+| `models/LandLifecycle.ts` | Cycle-aware land lifecycle tracking (planting, monitoring, strip test, dehaulming, harvest planning). |
+| `models/SeedProcessingBatch.ts` | Seed retrieval, sorting, treatment, QC decision, and packing output records. |
+| `models/SeedDispatch.ts` | Dispatch loading, truck weighment, transport docs, and line items. |
+| `models/SeedReceipt.ts` | Distribution-point receipt verification and discrepancy tracking. |
+| `models/FarmerSeedDistribution.ts` | Farmer-level seed issue acknowledgement with storage geolocation. |
 | `models/Reminder.ts` | Reminder events and status tracking. |
 | `models/FarmerReport.ts` | Farmer report generation metadata. |
 | `models/ChatMessage.ts` | Intra-org chat message records. |
@@ -345,5 +511,12 @@ Keep transactional consistency in mind (MongoDB transactions or careful ordering
 - **Multiple orgs per user**: introduce a `Membership` (or `OrganizationMember`) collection with `userId`, `organizationId`, `role`, and adjust login to choose “current org” or store active org on the session.
 - **Platform super-admins**: add a flag or role that bypasses org scope only where explicitly allowed.
 - **Permissions table**: store allowed actions per role in code or in DB if non-developers must edit them.
+
+## Migration strategy
+
+- Existing `LandLifecycle` documents remain valid because new cycle fields (`cycleId`, season/year/crop, planning dates) are optional.
+- Existing `visitReports`-style data should be mapped to `stripTestEntries` in a backfill script before UI endpoints fully switch to the new field.
+- Reminder documents without `cycleId` continue to work; new APIs should attach `cycleId` when available to support cycle-scoped dashboards.
+- New supply-chain models (`SeedProcessingBatch`, `SeedDispatch`, `SeedReceipt`, `FarmerSeedDistribution`) are additive and do not break existing farmer/land flows.
 
 This document should be updated whenever model interfaces, enums, indexes, or relationships change materially.
