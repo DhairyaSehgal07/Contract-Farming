@@ -19,6 +19,12 @@ export default function HomePage() {
             </Button>
           </Link>
 
+          <Link href="/organisation/list">
+            <Button variant="outline" className="w-full cursor-pointer">
+              View Organisations
+            </Button>
+          </Link>
+
           <Link href="/user/register">
             <Button variant="outline" className="w-full cursor-pointer">
               Register User
