@@ -1,10 +1,6 @@
 import mongoose, { Schema, model, models } from "mongoose";
 
-export const FARMER_REPORT_STATUS = [
-  "draft",
-  "generated",
-  "failed",
-] as const;
+export const FARMER_REPORT_STATUS = ["draft", "generated", "failed"] as const;
 export type FarmerReportStatus = (typeof FARMER_REPORT_STATUS)[number];
 
 export interface IFarmerReport {

@@ -84,5 +84,4 @@ reminderSchema.index(
 );
 reminderSchema.index({ organizationId: 1, cycleId: 1, status: 1, dueDate: 1 });
 
-export const Reminder =
-  models.Reminder || model<IReminder>("Reminder", reminderSchema);
+export const Reminder = models.Reminder || model<IReminder>("Reminder", reminderSchema);

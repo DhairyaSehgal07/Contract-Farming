@@ -9,13 +9,13 @@ It is meant for business and operations teams, not for technical teams.
 
 The system follows this business flow:
 
-1. Create organization and team users  
-2. Register farmers and their lands  
-3. Prepare seed in batches (sorting, treatment, quality decision)  
-4. Dispatch seed by truck  
-5. Receive seed at distribution point and check discrepancies  
-6. Distribute seed to farmers and collect acknowledgement  
-7. Track planting and crop monitoring on each land  
+1. Create organization and team users
+2. Register farmers and their lands
+3. Prepare seed in batches (sorting, treatment, quality decision)
+4. Dispatch seed by truck
+5. Receive seed at distribution point and check discrepancies
+6. Distribute seed to farmers and collect acknowledgement
+7. Track planting and crop monitoring on each land
 8. Generate reminders and final reports
 
 So the data models are simply digital registers for each stage above.
@@ -25,9 +25,11 @@ So the data models are simply digital registers for each stage above.
 ## 2) Organization
 
 ### Purpose
+
 Represents your company account (tenant) in the system. All data sits under one organization.
 
 ### Fields (short explanation)
+
 - `name`: Organization/company name.
 - `contactDetails.phone`: Main contact number.
 - `contactDetails.email`: Main contact email.
@@ -41,9 +43,11 @@ Represents your company account (tenant) in the system. All data sits under one 
 ## 3) Store Admin User (User)
 
 ### Purpose
+
 Represents internal team members (admin, manager, staff) who use the platform.
 
 ### Fields
+
 - `mobileNumber`: Login number for the user.
 - `password`: Secure login password.
 - `organizationId`: Which organization this user belongs to.
@@ -56,9 +60,11 @@ Represents internal team members (admin, manager, staff) who use the platform.
 ## 4) Farmer
 
 ### Purpose
+
 Stores farmer profile information.
 
 ### Fields
+
 - `fullName`: Farmer name.
 - `address`: Farmer address.
 - `mobileNumber`: Farmer contact number.
@@ -71,9 +77,11 @@ Stores farmer profile information.
 ## 5) Land
 
 ### Purpose
+
 Each farmer can have multiple lands. This model stores land master data.
 
 ### Fields
+
 - `name`: Land name/identifier.
 - `farmerId`: Farmer who owns or operates this land.
 - `organizationId`: Which organization this land belongs to.
@@ -88,9 +96,11 @@ Each farmer can have multiple lands. This model stores land master data.
 ## 6) SeedProcessingBatch
 
 ### Purpose
+
 Tracks seed preparation before dispatch (retrieval, sorting, treatment, packing, quality decision).
 
 ### Fields
+
 - `organizationId`: Organization context.
 - `batchNumber`: Unique batch reference number.
 - `sourceColdStorageName`: Source cold storage name.
@@ -116,9 +126,11 @@ Tracks seed preparation before dispatch (retrieval, sorting, treatment, packing,
 ## 7) SeedDispatch
 
 ### Purpose
+
 Tracks truck loading and dispatch movement from source to destination.
 
 ### Fields
+
 - `organizationId`: Organization context.
 - `seedProcessingBatchId`: Which processed batch this dispatch came from.
 - `dispatchNumber`: Unique dispatch reference.
@@ -143,9 +155,11 @@ Tracks truck loading and dispatch movement from source to destination.
 ## 8) SeedReceipt
 
 ### Purpose
+
 Tracks receiving process at distribution point with verification and discrepancy reporting.
 
 ### Fields
+
 - `organizationId`: Organization context.
 - `dispatchId`: Which dispatch this receipt belongs to.
 - `receiptNumber`: Unique receipt reference.
@@ -165,9 +179,11 @@ Tracks receiving process at distribution point with verification and discrepancy
 ## 9) FarmerSeedDistribution
 
 ### Purpose
+
 Tracks seed issue to each farmer (with land/cycle link) and farmer acknowledgement.
 
 ### Fields
+
 - `organizationId`: Organization context.
 - `farmerId`: Farmer receiving seed.
 - `landId`: Land where seed will be used.
@@ -188,9 +204,11 @@ Tracks seed issue to each farmer (with land/cycle link) and farmer acknowledgeme
 ## 10) LandLifecycle
 
 ### Purpose
+
 Tracks farm activity after seed reaches field: planting, irrigation, roguing, strip test, dehaulming, harvest planning.
 
 ### Fields
+
 - `organizationId`: Organization context.
 - `farmerId`: Farmer for this lifecycle.
 - `landId`: Land for this lifecycle.
@@ -204,6 +222,7 @@ Tracks farm activity after seed reaches field: planting, irrigation, roguing, st
 - `harvestPlannedDate`: Planned harvest date.
 
 ### Plantation entries (`plantationEntries[]`)
+
 - `plantationDate`: Planting date.
 - `variety`: Seed variety.
 - `size`: Seed size category.
@@ -220,6 +239,7 @@ Tracks farm activity after seed reaches field: planting, irrigation, roguing, st
 - `recordedByUserId`: Who entered the data.
 
 ### Irrigation entries (`irrigationEntries[]`)
+
 - `irrigationDate`: Irrigation date.
 - `notes`: Irrigation notes.
 - `media.photos`, `media.videos`: Supporting images/videos.
@@ -228,6 +248,7 @@ Tracks farm activity after seed reaches field: planting, irrigation, roguing, st
 - `reviewedByUserId`: Who reviewed it.
 
 ### Roguing entries (`roguingEntries[]`)
+
 - `roguingDate`: Roguing date.
 - `results`: Outcome summary.
 - `observations`: Field observations.
@@ -238,6 +259,7 @@ Tracks farm activity after seed reaches field: planting, irrigation, roguing, st
 - `recordedByUserId`: Who entered data.
 
 ### Strip test entries (`stripTestEntries[]`)
+
 - `stripTestDate`: Strip test date.
 - `stripLengthMeter`: Strip length.
 - `stripAreaSqm`: Strip area.
@@ -250,6 +272,7 @@ Tracks farm activity after seed reaches field: planting, irrigation, roguing, st
 - `recordedByUserId`: Who entered data.
 
 ### Dehaulming entries (`dehalmingEntries[]`)
+
 - `dehalmingDate`: Dehaulming date.
 - `notes`: Remarks.
 - `recordedByUserId`: Who entered data.
@@ -259,9 +282,11 @@ Tracks farm activity after seed reaches field: planting, irrigation, roguing, st
 ## 11) Reminder
 
 ### Purpose
+
 Keeps activity reminders so field operations happen on time.
 
 ### Fields
+
 - `organizationId`: Organization context.
 - `farmerId`: Farmer reference.
 - `landId`: Land reference.
@@ -281,9 +306,11 @@ Keeps activity reminders so field operations happen on time.
 ## 12) FarmerReport
 
 ### Purpose
+
 Stores final report generation details for each farmer.
 
 ### Fields
+
 - `organizationId`: Organization context.
 - `farmerId`: Farmer for whom report is generated.
 - `generatedByUserId`: User who generated report.
@@ -298,9 +325,11 @@ Stores final report generation details for each farmer.
 ## 13) ChatMessage
 
 ### Purpose
+
 Supports communication among team users (admin/manager/staff).
 
 ### Fields
+
 - `organizationId`: Organization context.
 - `senderUserId`: Message sender.
 - `recipientUserId`: Message receiver.
@@ -322,4 +351,3 @@ In simple words, the platform now gives Bhatti Agritech:
 - Better crop monitoring records for decision-making
 - Timely reminders for operations
 - Cleaner final reporting for management and review
-

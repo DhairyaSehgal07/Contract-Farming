@@ -1,9 +1,6 @@
 import mongoose, { Schema, model, models } from "mongoose";
 import bcrypt from "bcryptjs";
-import {
-  ORGANIZATION_ROLES,
-  type OrganizationRole,
-} from "./rbac";
+import { ORGANIZATION_ROLES, type OrganizationRole } from "./rbac";
 
 export interface IStoreAdminUser {
   _id?: mongoose.Types.ObjectId;
@@ -38,10 +35,7 @@ const storeAdminUserSchema = new Schema<IStoreAdminUser>(
   { timestamps: true },
 );
 
-storeAdminUserSchema.index(
-  { organizationId: 1, mobileNumber: 1 },
-  { unique: true },
-);
+storeAdminUserSchema.index({ organizationId: 1, mobileNumber: 1 }, { unique: true });
 
 storeAdminUserSchema.pre("save", async function () {
   if (this.isModified("password")) {
@@ -50,8 +44,7 @@ storeAdminUserSchema.pre("save", async function () {
 });
 
 export const StoreAdminUser =
-  models.StoreAdminUser ||
-  model<IStoreAdminUser>("StoreAdminUser", storeAdminUserSchema);
+  models.StoreAdminUser || model<IStoreAdminUser>("StoreAdminUser", storeAdminUserSchema);
 
 /**
  * Backward-compatible alias while existing imports still use `User`.
