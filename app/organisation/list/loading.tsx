@@ -33,6 +33,12 @@ function TableRowSkeleton() {
       <TableCell className="hidden lg:table-cell">
         <Skeleton className="h-4 w-36" />
       </TableCell>
+      <TableCell className="text-right">
+        <div className="flex justify-end gap-1">
+          <Skeleton className="size-7 rounded-sm" />
+          <Skeleton className="size-7 rounded-sm" />
+        </div>
+      </TableCell>
     </TableRow>
   );
 }
@@ -64,6 +70,7 @@ export default function OrganisationListLoading() {
                   <TableHead className="hidden md:table-cell">Contact</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="hidden lg:table-cell">Created</TableHead>
+                  <TableHead className="w-[1%] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
+import { AlertCircleIcon, InboxIcon } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -8,34 +9,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { getAllOrganizations } from "@/lib/data/organizations";
+import { OrganisationListTable } from "./organisation-list-table";
 
 /** Always fetch fresh data; this list is driven by the same query as GET /api/organisation. */
 export const dynamic = "force-dynamic";
-
-const dateFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
-function formatContactSummary(contact: {
-  phone?: string;
-  email?: string;
-  address?: string;
-}) {
-  const parts = [contact.email, contact.phone].filter(Boolean);
-  if (parts.length > 0) return parts.join(" · ");
-  if (contact.address) return contact.address;
-  return "—";
-}
 
 export default async function OrganisationListPage() {
   let organizations: Awaited<ReturnType<typeof getAllOrganizations>>;
@@ -47,6 +25,17 @@ export default async function OrganisationListPage() {
     organizations = [];
     loadError = "Could not load organizations. Try again later.";
   }
+
+  const listRows =
+    loadError === null
+      ? organizations.map((organization) => ({
+          id: String(organization.id),
+          name: organization.name,
+          contactDetails: organization.contactDetails,
+          isActive: organization.isActive,
+          createdAt: organization.createdAt?.toISOString() ?? null,
+        }))
+      : [];
 
   return (
     <main className="min-h-screen bg-background px-4 py-10">
@@ -78,55 +67,21 @@ export default async function OrganisationListPage() {
           </CardHeader>
           <CardContent>
             {loadError ? (
-              <p className="text-sm text-destructive">{loadError}</p>
+              <Alert variant="destructive">
+                <AlertCircleIcon />
+                <AlertTitle>Could not load organisations</AlertTitle>
+                <AlertDescription>{loadError}</AlertDescription>
+              </Alert>
             ) : organizations.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No organisations yet. Register one from the home page.
-              </p>
+              <Alert>
+                <InboxIcon />
+                <AlertTitle>No organisations yet</AlertTitle>
+                <AlertDescription>
+                  Register one from the home page to see it listed here.
+                </AlertDescription>
+              </Alert>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead className="hidden md:table-cell">
-                      Contact
-                    </TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="hidden lg:table-cell">
-                      Created
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {organizations.map((organization) => (
-                    <TableRow key={String(organization.id)}>
-                      <TableCell className="font-medium">
-                        <div className="flex flex-col gap-0.5">
-                          <span>{organization.name}</span>
-                          <span className="text-xs text-muted-foreground md:hidden">
-                            {formatContactSummary(organization.contactDetails)}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden max-w-[280px] truncate text-muted-foreground md:table-cell">
-                        {formatContactSummary(organization.contactDetails)}
-                      </TableCell>
-                      <TableCell>
-                        {organization.isActive ? (
-                          <Badge variant="default">Active</Badge>
-                        ) : (
-                          <Badge variant="secondary">Inactive</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="hidden text-muted-foreground lg:table-cell">
-                        {organization.createdAt
-                          ? dateFormatter.format(organization.createdAt)
-                          : "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <OrganisationListTable initialRows={listRows} />
             )}
           </CardContent>
         </Card>
