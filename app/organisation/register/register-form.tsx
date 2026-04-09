@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "@tanstack/react-form";
 import { z } from "zod";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { registerOrganizationAction } from "./actions";
 
@@ -25,8 +25,6 @@ const registerOrganizationSchema = z.object({
 
 export default function OrganisationRegisterForm() {
   const router = useRouter();
-  const [submitMessage, setSubmitMessage] = useState<string | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const form = useForm({
     defaultValues: {
@@ -39,9 +37,6 @@ export default function OrganisationRegisterForm() {
       onSubmit: registerOrganizationSchema,
     },
     onSubmit: async ({ value }) => {
-      setSubmitMessage(null);
-      setSubmitError(null);
-
       const result = await registerOrganizationAction({
         name: value.name,
         contactDetails: {
@@ -52,11 +47,11 @@ export default function OrganisationRegisterForm() {
       });
 
       if (!result.success) {
-        setSubmitError(result.message);
+        toast.error(result.message);
         return;
       }
 
-      setSubmitMessage(result.message);
+      toast.success(result.message);
       form.reset();
       router.push("/");
     },
@@ -177,18 +172,6 @@ export default function OrganisationRegisterForm() {
             </div>
           )}
         </form.Field>
-
-        {submitError ? (
-          <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {submitError}
-          </p>
-        ) : null}
-
-        {submitMessage ? (
-          <p className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-            {submitMessage}
-          </p>
-        ) : null}
 
         <form.Subscribe selector={(state) => [state.isSubmitting]}>
           {([isSubmitting]) => (
