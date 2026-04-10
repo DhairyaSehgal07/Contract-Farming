@@ -50,7 +50,7 @@ export default async function SignInPage({
         </header>
 
         <div className="flex flex-1 flex-col items-center justify-center px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4 sm:px-6">
-          <SignInForm callbackUrl={callbackUrl ?? "/protected"} />
+          <SignInForm callbackUrl={callbackUrl} />
         </div>
       </div>
     </SignInBackground>

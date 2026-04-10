@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
-import { getPostSignInPath } from "@/lib/post-sign-in-path";
+import { resolveAfterSignIn } from "@/lib/post-sign-in-path";
 
 /** Run on all routes except static assets and API routes. */
 export const config = {
@@ -37,7 +37,11 @@ export default async function proxy(request: NextRequest) {
   if (token && isPublicPath(pathname)) {
     const role =
       typeof token.role === "string" ? token.role : undefined;
-    const destination = getPostSignInPath(role);
+    const callbackUrl =
+      pathname.startsWith("/sign-in")
+        ? (url.searchParams.get("callbackUrl") ?? undefined)
+        : undefined;
+    const destination = resolveAfterSignIn(callbackUrl, role);
     return NextResponse.redirect(new URL(destination, request.url));
   }
 

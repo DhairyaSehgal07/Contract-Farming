@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "@tanstack/react-form";
 import { Eye, EyeOff } from "lucide-react";
-import { getSession, signIn } from "next-auth/react";
+import { signIn } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -20,7 +20,11 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { validateSignInInputOnServer } from "@/actions/sign-in";
 import { resolveAfterSignIn } from "@/lib/post-sign-in-path";
-import { signInFormSchema } from "@/lib/schemas/sign-in";
+import {
+  signInFormSchema,
+  signInMobileNumberFieldSchema,
+  signInPasswordFieldSchema,
+} from "@/lib/schemas/sign-in";
 import { cn } from "@/lib/utils";
 
 function fieldErrorText(
@@ -35,11 +39,7 @@ function fieldErrorText(
   return undefined;
 }
 
-export function SignInForm({
-  callbackUrl = "/protected",
-}: {
-  callbackUrl?: string;
-}) {
+export function SignInForm({ callbackUrl }: { callbackUrl?: string }) {
   const router = useRouter();
   const [showPassword, setShowPassword] = React.useState(false);
   const [pending, setPending] = React.useState(false);
@@ -77,11 +77,23 @@ export function SignInForm({
           toast.success("Signed in successfully", {
             description: "Redirecting you to your workspace.",
           });
-          const session = await getSession();
-          const nextPath = resolveAfterSignIn(
-            callbackUrl,
-            session?.user?.role,
-          );
+          // Use the session API instead of a Server Action so we don’t POST a Next Action
+          // to the post-login route (that mismatch triggers “unexpected response”).
+          async function readSessionForRedirect() {
+            const res = await fetch("/api/auth/session", {
+              credentials: "include",
+              cache: "no-store",
+            });
+            return res.json() as Promise<{
+              user?: { role?: string };
+            } | null>;
+          }
+          let session = await readSessionForRedirect();
+          if (!session?.user?.role) {
+            await new Promise((r) => setTimeout(r, 50));
+            session = await readSessionForRedirect();
+          }
+          const nextPath = resolveAfterSignIn(callbackUrl, session?.user?.role);
           router.push(nextPath);
           router.refresh();
         }
@@ -111,7 +123,12 @@ export function SignInForm({
           }}
           noValidate
         >
-          <form.Field name="mobileNumber">
+          <form.Field
+            name="mobileNumber"
+            validators={{
+              onBlur: signInMobileNumberFieldSchema,
+            }}
+          >
             {(field) => {
               const isInvalid =
                 field.state.meta.isTouched && !field.state.meta.isValid;
@@ -151,7 +168,12 @@ export function SignInForm({
             }}
           </form.Field>
 
-          <form.Field name="password">
+          <form.Field
+            name="password"
+            validators={{
+              onBlur: signInPasswordFieldSchema,
+            }}
+          >
             {(field) => {
               const isInvalid =
                 field.state.meta.isTouched && !field.state.meta.isValid;

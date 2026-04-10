@@ -16,6 +16,14 @@ export function getPostSignInPath(role: string | undefined): string {
   return map[role];
 }
 
+/** Same-origin relative path only (blocks `//evil`, `https://…`, etc.). */
+export function isSafeInternalCallbackPath(path: string): boolean {
+  const p = path.trim();
+  if (!p.startsWith("/") || p.startsWith("//")) return false;
+  if (p.includes("://") || p.includes("\\")) return false;
+  return true;
+}
+
 /**
  * After credentials sign-in: use an explicit `callbackUrl` when it looks like a deep link;
  * otherwise route by role.
@@ -29,7 +37,8 @@ export function resolveAfterSignIn(
     trimmed &&
     trimmed !== "/protected" &&
     trimmed !== "/" &&
-    !trimmed.startsWith("/sign-in")
+    !trimmed.startsWith("/sign-in") &&
+    isSafeInternalCallbackPath(trimmed)
   ) {
     return trimmed;
   }
