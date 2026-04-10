@@ -28,6 +28,9 @@ import { registerUserAction } from "./actions";
 
 const objectIdRegex = /^[a-f\d]{24}$/i;
 
+/** Sentinel for Radix Select — must never be a valid ObjectId; keeps Select controlled. */
+const ORGANISATION_UNSET = "__none__";
+
 const registerUserFormSchema = z
   .object({
     name: z
@@ -42,8 +45,7 @@ const registerUserFormSchema = z
     passwordConfirm: z.string(),
     organizationId: z
       .string()
-      .trim()
-      .min(1, "Select an organization")
+      .refine((v) => v !== ORGANISATION_UNSET, "Select an organization")
       .regex(objectIdRegex, "Select an organization"),
     role: z.enum(ORGANIZATION_ROLES),
   })
@@ -73,7 +75,7 @@ export default function UserRegisterForm({ organizations }: RegisterFormProps) {
       mobileNumber: "",
       password: "",
       passwordConfirm: "",
-      organizationId: "",
+      organizationId: ORGANISATION_UNSET,
       role: "staff" as (typeof ORGANIZATION_ROLES)[number],
     },
     validators: {
@@ -161,7 +163,7 @@ export default function UserRegisterForm({ organizations }: RegisterFormProps) {
                 <div className="space-y-2">
                   <Label htmlFor="organization-select">Organisation</Label>
                   <Select
-                    value={field.state.value === "" ? undefined : field.state.value}
+                    value={field.state.value}
                     onValueChange={(v) => field.handleChange(v)}
                   >
                     <SelectTrigger
@@ -172,6 +174,9 @@ export default function UserRegisterForm({ organizations }: RegisterFormProps) {
                       <SelectValue placeholder="Select organisation" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value={ORGANISATION_UNSET}>
+                        Select organisation
+                      </SelectItem>
                       {organizations.map((org) => (
                         <SelectItem key={org.id} value={org.id}>
                           {org.name}

@@ -272,7 +272,13 @@ export function OrganisationListTable({
         </TableHeader>
         <TableBody>
           {rows.map((organization) => (
-            <TableRow key={organization.id}>
+            <TableRow
+              key={organization.id}
+              className="cursor-pointer hover:bg-muted/50"
+              onClick={() => {
+                router.push(`/organisation/${organization.id}`);
+              }}
+            >
               <TableCell className="font-medium">
                 <div className="flex flex-col gap-0.5">
                   <span>{organization.name}</span>
@@ -296,7 +302,10 @@ export function OrganisationListTable({
                   ? dateFormatter.format(new Date(organization.createdAt))
                   : "—"}
               </TableCell>
-              <TableCell className="text-right">
+              <TableCell
+                className="text-right"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <div className="flex justify-end gap-1">
                   <Button
                     type="button"

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
+import { AppTopbar } from "@/components/app-topbar";
 import { cn } from "@/lib/utils";
 import { Providers } from "@/components/providers";
 
@@ -31,7 +32,7 @@ export default function RootLayout({
       lang="en"
       suppressHydrationWarning
       className={cn(
-        "h-full",
+        "h-full scroll-smooth",
         "antialiased",
         geistSans.variable,
         geistMono.variable,
@@ -40,7 +41,10 @@ export default function RootLayout({
       )}
     >
       <body className="flex min-h-full flex-col">
-        <Providers>{children}</Providers>
+        <Providers>
+          <AppTopbar />
+          <main className="flex min-h-0 flex-1 flex-col">{children}</main>
+        </Providers>
       </body>
     </html>
   );

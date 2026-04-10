@@ -1,0 +1,74 @@
+---
+description: Premium UI — mobile-first, dark-mode-first Contract Farming (field + analytics)
+globs: "**/*.tsx,**/globals.css"
+alwaysApply: false
+---
+
+# Contract Farming — premium UI & styling
+
+The product is **operations + analytics** on **phones and tablets in the field** first: farmers, lands, lifecycle, reminders, reports, chat. The UI must feel **premium**, **mobile-first**, and **elegant in dark mode**—calm, readable outdoors, and never gimmicky.
+
+## Mobile-first (required)
+
+- **Design and implement for the smallest breakpoint first** (default / `sm`), then enhance for `md` and `lg`. Do not assume hover-only affordances for core actions.
+- **Single-column by default**: stack sections, CTAs, and forms vertically; introduce multi-column grids only from `sm:` or `md:` upward.
+- **Touch targets**: interactive controls (buttons, list rows, toggles, icon hits) should be at least **~44×44px** where feasible—use padding on `Button`, `size` variants, or `min-h-11` / `min-h-12` on tappable rows. Keep adequate **spacing between** adjacent tappable elements to prevent mis-taps.
+- **Thumb reach**: place primary actions in the **lower half** of full-screen flows when possible (e.g. sticky footer actions for long forms); secondary actions higher or in toolbars.
+- **Safe areas**: on full-bleed or fixed bottom UI, account for notches and home indicators: `pb-[max(1rem,env(safe-area-inset-bottom))]`, `pt-[env(safe-area-inset-top)]` where fixed/sticky chrome touches the screen edge.
+- **Navigation**: avoid cramming many links in the top bar on narrow widths—use **priority + overflow** (primary CTA + menu/sheet) or a **bottom nav** pattern for app-style sections when IA grows. Current `AppTopbar` hides some actions on small screens by design; extend that pattern rather than shrinking text to fit.
+- **Tables on mobile**: prefer **cards or stacked rows** at small widths; horizontal scroll for tables only as a last resort, with clear scroll affordance.
+- **Performance**: prefer CSS for layout/decoration; avoid heavy blur or large box-shadows on every cell in long lists on low-end devices.
+
+## Dark mode — elegance (required)
+
+Dark mode is a **first-class** experience, not an afterthought. **Verify every new screen in `.dark`** (theme toggle).
+
+- **Use tokens only**: `background`, `foreground`, `card`, `border`, `muted`, `muted-foreground`, `primary`, `ring`—never hard-code `#000` / `#fff` for UI chrome. Elevation comes from **slightly different** `card` vs `background` and **subtle borders**, not from dropping pure black panels everywhere.
+- **Borders stay visible**: in dark mode, borders are often **low-contrast white alpha** (`border` token). Do not stack so many nested boxes that borders disappear—use **one** clear boundary per level or rely on spacing.
+- **Muted text**: `muted-foreground` must stay **readable on `background` and `card`**; if copy feels washed out, fix hierarchy (weight/size) before ad-hoc lighter grays.
+- **Primary on dark**: brand moments (`text-primary`, primary buttons, icon wells) should feel **luminous but soft**—avoid neon saturation; use token `primary` and `/opacity` modifiers (`bg-primary/10`, `ring-primary/15`) for glow-like accents.
+- **Decorative layers** (hero grids, radial washes): **lower opacity in `.dark`** than in light so backgrounds stay calm—e.g. grid `opacity-20` dark vs `opacity-35` light; radial gradients use slightly higher primary alpha only when still subtle.
+- **Glass / blur**: `backdrop-blur` + translucent `bg-background/xx` can look great in dark; avoid **extreme** transparency that lets busy content show through behind nav—keep **supports-backdrop-filter** fallbacks in mind.
+- **Charts**: use **`chart-1`–`chart-5`**; ensure series and legends remain distinguishable on `card`/`background` in dark (stroke/fill contrast).
+- **Images & maps**: prefer dimmed overlays or token-based chrome so light imagery does not blow out dark UI.
+
+## Brand posture
+
+- **Trust + clarity first**; **one accent** (`primary`) per view for brand emphasis.
+- **Restraint**: space, hairlines, subtle shadows—not heavy frames on every widget.
+
+## Tokens (required)
+
+- Semantic variables from `globals.css` / Tailwind—not raw hex/RGB for theme surfaces.
+- **Depth**: `border-border/50`–`/60`, `shadow-sm`, inset hairlines—avoid heavy drop shadows on dense data pages.
+
+## Typography
+
+- **Titles**: `font-semibold`–`font-medium`, `tracking-tight`.
+- **Eyebrows**: `text-xs`, uppercase, wide tracking, `text-primary` or `text-muted-foreground`.
+- **Body**: `text-sm`–`text-base`; `tabular-nums` for numeric columns.
+- **Micro brand** (e.g. “By Coldop” under the title): tiny size + wide tracking + `text-muted-foreground` (avoid shouting all-caps unless the design explicitly requires it).
+
+## Layout & rhythm
+
+- Align marketing width with **`max-w-5xl`** where used; app pages may go full width with **consistent horizontal padding** (`px-4` mobile, `sm:px-6`).
+- **Vertical rhythm**: generous `py` on marketing; tighter gaps in data UIs.
+
+## Components & patterns
+
+- **CTAs**: `Button` + `asChild` + `Link`; primary for main action, `outline` / `ghost` for secondary.
+- **Cards**: `rounded-xl`, `border border-border`, optional `bg-card/80` + light blur; restrained hover.
+- **Icon wells**: `bg-primary/10`, `text-primary`, `ring-1 ring-primary/15`—aligned with `AppTopbar` mark.
+
+## Motion
+
+- Short transitions (`duration-200`); no distracting motion on tables/forms.
+
+## Accessibility & QA checklist
+
+- **Keyboard + focus**: visible `focus-visible` rings.
+- Before shipping UI: **narrow viewport (375px)**, **dark mode on**, and **touch** (or emulator) for primary flows.
+
+## Avoid
+
+- Desktop-only layouts, hover-only critical actions, tiny tap targets, ad-hoc dark grays, loud gradients behind data, decorative noise that fights readability in dark mode.
