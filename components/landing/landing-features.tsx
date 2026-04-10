@@ -7,6 +7,8 @@ import {
 
 import { cn } from "@/lib/utils";
 
+import { landingSectionShellClasses } from "./landing-section-classes";
+
 const features = [
   {
     icon: SproutIcon,
@@ -38,12 +40,12 @@ export function LandingFeatures() {
   return (
     <section
       id="features"
-      className="scroll-mt-24 border-t border-border/40 px-4 py-16 sm:px-6 sm:py-20 lg:py-24"
+      className={landingSectionShellClasses}
       aria-labelledby="landing-features-heading"
     >
       <div className="mx-auto w-full max-w-5xl">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-[0.6875rem] font-medium uppercase tracking-[0.22em] text-primary">
+          <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">
             Capabilities
           </p>
           <h2
@@ -63,8 +65,8 @@ export function LandingFeatures() {
             <li
               key={title}
               className={cn(
-                "group relative rounded-2xl border border-border/70 bg-card/70 p-5 shadow-sm backdrop-blur-sm",
-                "transition-[border-color,box-shadow,background-color] duration-300 ease-out",
+                "group relative rounded-2xl border border-border/60 bg-card/70 p-5 shadow-sm backdrop-blur-sm",
+                "transition-[border-color,box-shadow,background-color] duration-200 ease-out",
                 "hover:border-primary/20 hover:bg-card hover:shadow-md",
                 "dark:border-border/50 dark:bg-card/40 dark:hover:border-primary/25",
               )}
@@ -74,7 +76,7 @@ export function LandingFeatures() {
                   "flex h-11 w-11 items-center justify-center rounded-xl",
                   "bg-linear-to-br from-primary/12 to-primary/5 text-primary",
                   "ring-1 ring-primary/15",
-                  "transition-transform duration-300 ease-out group-hover:scale-105",
+                  "transition-transform duration-200 ease-out group-hover:scale-105",
                 )}
               >
                 <Icon className="size-5" aria-hidden strokeWidth={1.75} />

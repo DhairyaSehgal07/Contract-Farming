@@ -8,6 +8,8 @@ import {
 
 import { cn } from "@/lib/utils";
 
+import { landingSectionShellClasses } from "./landing-section-classes";
+
 const steps = [
   {
     icon: SproutIcon,
@@ -40,12 +42,12 @@ export function LandingWorkflow() {
   return (
     <section
       id="workflow"
-      className="scroll-mt-24 border-t border-border/40 px-4 py-16 sm:px-6 sm:py-20 lg:py-24"
+      className={landingSectionShellClasses}
       aria-labelledby="landing-workflow-heading"
     >
       <div className="mx-auto w-full max-w-5xl">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-[0.6875rem] font-medium uppercase tracking-[0.22em] text-primary">
+          <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">
             Lifecycle
           </p>
           <h2
@@ -63,7 +65,7 @@ export function LandingWorkflow() {
         <ol className="relative mx-auto mt-10 max-w-3xl sm:mt-14">
           <span
             aria-hidden
-            className="absolute top-3 bottom-3 left-5 w-px bg-border/70"
+            className="absolute top-3 bottom-3 left-5 w-px bg-border/60"
           />
           {steps.map(({ icon: Icon, title, description }, i) => (
             <li
@@ -81,7 +83,7 @@ export function LandingWorkflow() {
               >
                 <Icon className="size-5" strokeWidth={1.75} />
               </div>
-              <div className="min-w-0 flex-1 rounded-2xl border border-border/50 bg-card/50 p-4 backdrop-blur-sm dark:bg-card/30 sm:p-5">
+              <div className="min-w-0 flex-1 rounded-2xl border border-border/50 bg-card/50 p-5 backdrop-blur-sm dark:bg-card/30">
                 <div className="flex flex-wrap items-baseline gap-2">
                   <span className="text-xs font-medium tabular-nums text-muted-foreground">
                     {String(i + 1).padStart(2, "0")}

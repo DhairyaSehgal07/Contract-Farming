@@ -1,17 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+import { landingSectionShellClasses } from "./landing-section-classes";
+
 export function LandingCta() {
   return (
     <section
       id="cta"
-      className="scroll-mt-24 border-t border-border/40 px-4 py-16 sm:px-6 sm:py-20 lg:py-24"
+      className={landingSectionShellClasses}
       aria-labelledby="landing-cta-heading"
     >
       <div className="mx-auto w-full max-w-5xl">
         <div
           className={cn(
-            "relative overflow-hidden rounded-3xl border border-border/50 bg-linear-to-br from-primary/10 via-card/60 to-card/40 p-6 shadow-lg sm:p-10 lg:p-12",
+            "relative overflow-hidden rounded-3xl border border-border/50 bg-linear-to-br from-primary/10 via-card/60 to-card/40 p-6 shadow-sm sm:p-8 lg:p-10",
             "dark:from-primary/15 dark:via-card/40 dark:to-card/25",
           )}
         >
@@ -30,11 +32,11 @@ export function LandingCta() {
               Your admin provisions access. Use your credentials to sign in and
               pick up where the team left off—on any device.
             </p>
-            <div className="mt-8 flex flex-col items-stretch gap-3 sm:flex-row sm:justify-center sm:gap-4">
+            <div className="mt-8 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-center sm:gap-4">
               <Button
                 type="button"
                 size="lg"
-                className="h-12 min-h-12 shadow-md shadow-primary/20 sm:h-10 sm:min-h-0 sm:min-w-40"
+                className="min-h-11 w-full rounded-lg shadow-sm shadow-primary/15 sm:min-h-9 sm:w-auto sm:min-w-40"
               >
                 Get started
               </Button>
@@ -42,7 +44,7 @@ export function LandingCta() {
                 type="button"
                 size="lg"
                 variant="outline"
-                className="h-12 min-h-12 border-border/80 bg-background/70 backdrop-blur-sm sm:h-10 sm:min-h-0 sm:min-w-36"
+                className="min-h-11 w-full rounded-lg border-border/60 bg-background/70 backdrop-blur-sm sm:min-h-9 sm:w-auto sm:min-w-36"
               >
                 Sign in
               </Button>
