@@ -9,10 +9,10 @@ export default function HomePage() {
   return (
     <LandingBackground>
       <LandingHero />
-      {/* <LandingFeatures /> */}
-      {/* <LandingWorkflow /> */}
-      {/* <LandingCta /> */}
-      {/* <LandingFooter /> */}
+      <LandingFeatures />
+      <LandingWorkflow />
+      <LandingCta />
+      <LandingFooter />
     </LandingBackground>
   );
 }
