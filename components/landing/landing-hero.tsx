@@ -65,7 +65,7 @@ export function LandingHero() {
               asChild
             >
               <Link href="/organisation/register">
-                Register your organisation
+              Get Started
               </Link>
             </Button>
             <Button
