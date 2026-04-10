@@ -12,7 +12,13 @@ export const metadata: Metadata = {
   description: "Sign in to Contract Farming.",
 };
 
-export default function SignInPage() {
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ callbackUrl?: string }>;
+}) {
+  const { callbackUrl } = await searchParams;
+
   return (
     <SignInBackground>
       <div
@@ -44,7 +50,7 @@ export default function SignInPage() {
         </header>
 
         <div className="flex flex-1 flex-col items-center justify-center px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4 sm:px-6">
-          <SignInForm />
+          <SignInForm callbackUrl={callbackUrl ?? "/protected"} />
         </div>
       </div>
     </SignInBackground>

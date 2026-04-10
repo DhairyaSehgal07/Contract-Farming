@@ -1,34 +1,27 @@
 import type { DefaultSession } from "next-auth";
+import type { OrganizationRole } from "@/models/rbac";
 
 declare module "next-auth" {
   interface Session {
-    user: {
+    user: DefaultSession["user"] & {
       id: string;
-      name: string;
       mobileNumber: string;
       organizationId: string;
-      role: string;
-      isActive: boolean;
-    } & DefaultSession["user"];
+      role: OrganizationRole;
+    };
   }
 
   interface User {
-    id: string;
-    name: string;
-    mobileNumber: string;
-    organizationId: string;
-    role: string;
-    isActive: boolean;
+    mobileNumber?: string;
+    organizationId?: string;
+    role?: OrganizationRole;
   }
 }
 
 declare module "next-auth/jwt" {
   interface JWT {
-    id?: string;
-    name?: string;
     mobileNumber?: string;
     organizationId?: string;
-    role?: string;
-    isActive?: boolean;
+    role?: OrganizationRole;
   }
 }

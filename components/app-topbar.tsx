@@ -1,8 +1,9 @@
 "use client";
 
-import * as React from "react";
 import Link from "next/link";
 import { SproutIcon } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { AccountAvatarDropdown } from "@/components/account-avatar-dropdown";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,8 @@ function BrandMark({ className }: { className?: string }) {
 }
 
 export function AppTopbar() {
+  const { data: session, status } = useSession();
+
   return (
     <header
       className={cn(
@@ -43,13 +46,22 @@ export function AppTopbar() {
 
         <div className="flex shrink-0 items-center gap-1.5">
           <ModeToggle className="min-h-10 min-w-10 md:min-h-9 md:min-w-9" />
-          <Button
-            size="sm"
-            className="min-h-10 rounded-md px-3 md:min-h-9"
-            asChild
-          >
-            <Link href="/sign-in">Sign In</Link>
-          </Button>
+          {status === "loading" ? (
+            <div
+              className="size-11 shrink-0 animate-pulse rounded-full bg-muted"
+              aria-hidden
+            />
+          ) : session?.user ? (
+            <AccountAvatarDropdown user={session.user} />
+          ) : (
+            <Button
+              size="sm"
+              className="min-h-10 rounded-md px-3 md:min-h-9"
+              asChild
+            >
+              <Link href="/sign-in">Sign In</Link>
+            </Button>
+          )}
         </div>
       </div>
     </header>
