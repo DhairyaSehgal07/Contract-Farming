@@ -1,7 +1,7 @@
 import mongoose, { Schema, model, models } from "mongoose";
 
-export const LAND_AREA_UNITS = ["acre", "hectare"] as const;
-export type LandAreaUnit = (typeof LAND_AREA_UNITS)[number];
+import type { LandAreaUnit } from "@/lib/land/constants";
+import { LAND_AREA_UNITS } from "@/lib/land/constants";
 
 export interface ILandArea {
   value: number;
