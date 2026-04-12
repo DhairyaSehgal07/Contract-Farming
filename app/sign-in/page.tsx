@@ -15,9 +15,11 @@ export const metadata: Metadata = {
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ callbackUrl?: string }>;
+  searchParams: Promise<{ callbackUrl?: string | string[] }>;
 }) {
-  const { callbackUrl } = await searchParams;
+  const sp = await searchParams;
+  const raw = sp.callbackUrl;
+  const callbackUrl = Array.isArray(raw) ? raw[0] : raw;
 
   return (
     <SignInBackground>

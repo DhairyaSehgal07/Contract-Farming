@@ -2,10 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useForm } from "@tanstack/react-form";
 import { Eye, EyeOff } from "lucide-react";
-import { signIn } from "next-auth/react";
+import { getSession, signIn } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,7 +18,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { validateSignInInputOnServer } from "@/actions/sign-in";
-import { resolveAfterSignIn } from "@/lib/post-sign-in-path";
+import {
+  isSafeInternalCallbackPath,
+  resolveAfterSignIn,
+} from "@/lib/post-sign-in-path";
 import {
   signInFormSchema,
   signInMobileNumberFieldSchema,
@@ -39,8 +41,50 @@ function fieldErrorText(
   return undefined;
 }
 
+function needsSessionRoleForRedirect(callbackUrl: string | undefined): boolean {
+  const trimmed = callbackUrl?.trim();
+  if (
+    !trimmed ||
+    trimmed === "/protected" ||
+    trimmed === "/" ||
+    trimmed.startsWith("/sign-in") ||
+    !isSafeInternalCallbackPath(trimmed)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/** NextAuth returns an absolute `url`; extract same-origin path for routing. */
+function pathFromNextAuthResultUrl(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    const u = new URL(url);
+    if (typeof window !== "undefined" && u.origin !== window.location.origin) {
+      return undefined;
+    }
+    const path = `${u.pathname}${u.search}${u.hash}`;
+    if (!isSafeInternalCallbackPath(u.pathname)) return undefined;
+    return path;
+  } catch {
+    return undefined;
+  }
+}
+
+async function getSessionWithRoleWhenNeeded(
+  needsRole: boolean,
+): Promise<{ user?: { role?: string } } | null> {
+  let session = await getSession();
+  if (!needsRole) return session;
+  const deadline = Date.now() + 2500;
+  while (Date.now() < deadline && !session?.user?.role) {
+    await new Promise((r) => setTimeout(r, 75));
+    session = await getSession();
+  }
+  return session;
+}
+
 export function SignInForm({ callbackUrl }: { callbackUrl?: string }) {
-  const router = useRouter();
   const [showPassword, setShowPassword] = React.useState(false);
   const [pending, setPending] = React.useState(false);
 
@@ -77,25 +121,15 @@ export function SignInForm({ callbackUrl }: { callbackUrl?: string }) {
           toast.success("Signed in successfully", {
             description: "Redirecting you to your workspace.",
           });
-          // Use the session API instead of a Server Action so we don’t POST a Next Action
-          // to the post-login route (that mismatch triggers “unexpected response”).
-          async function readSessionForRedirect() {
-            const res = await fetch("/api/auth/session", {
-              credentials: "include",
-              cache: "no-store",
-            });
-            return res.json() as Promise<{
-              user?: { role?: string };
-            } | null>;
-          }
-          let session = await readSessionForRedirect();
-          if (!session?.user?.role) {
-            await new Promise((r) => setTimeout(r, 50));
-            session = await readSessionForRedirect();
-          }
-          const nextPath = resolveAfterSignIn(callbackUrl, session?.user?.role);
-          router.push(nextPath);
-          router.refresh();
+          const callbackFromAuth = pathFromNextAuthResultUrl(result.url);
+          const effectiveCallback = callbackFromAuth ?? callbackUrl;
+          const needsRole = needsSessionRoleForRedirect(effectiveCallback);
+          const session = await getSessionWithRoleWhenNeeded(needsRole);
+          const nextPath = resolveAfterSignIn(
+            effectiveCallback,
+            needsRole ? session?.user?.role : undefined,
+          );
+          window.location.assign(nextPath);
         }
       } finally {
         setPending(false);
