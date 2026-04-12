@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import {
   ArrowLeftIcon,
   DropletsIcon,
+  EyeIcon,
   LeafIcon,
   Loader2Icon,
   PencilIcon,
@@ -57,6 +58,8 @@ import type {
 } from "@/lib/schemas/land-lifecycle";
 import { UploadButton } from "@/lib/uploadthing";
 import { cn } from "@/lib/utils";
+
+import { StepEntriesViewSheet } from "./land-step-entries-view-sheet";
 
 type LandLifecyclePayload = {
   id: string;
@@ -136,6 +139,14 @@ function isoToDateInput(iso?: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   return format(d, "yyyy-MM-dd");
+}
+
+/** Parse API/DB date fields (ISO string or Date) for date inputs. */
+function unknownDateToYmd(v: unknown): string {
+  if (v == null) return format(new Date(), "yyyy-MM-dd");
+  if (typeof v === "string") return isoToDateInput(v);
+  if (v instanceof Date) return format(v, "yyyy-MM-dd");
+  return isoToDateInput(String(v));
 }
 
 function dateInputToPayload(s: string): string | undefined {
@@ -240,7 +251,7 @@ export function LandLifecyclePanel({ landId, land }: LandLifecyclePanelProps) {
         body: serializeLandLifecyclePatch(body),
       }),
     onSuccess: () => {
-      toast.success("Cycle details updated");
+      toast.success("Saved");
       setEditOpen(false);
       void queryClient.invalidateQueries({ queryKey: ["land-lifecycle", landId] });
     },
@@ -575,10 +586,57 @@ function StepEntryImageUpload({
   );
 }
 
+function deleteLifecycleEntryAt(
+  lifecycle: LandLifecyclePayload,
+  step: JourneyStepKey,
+  index: number,
+): UpdateLandLifecycleInput {
+  switch (step) {
+    case "plantation": {
+      const next = [...lifecycle.plantationEntries];
+      next.splice(index, 1);
+      return {
+        plantationEntries: next as NonNullable<UpdateLandLifecycleInput["plantationEntries"]>,
+      };
+    }
+    case "irrigation": {
+      const next = [...lifecycle.irrigationEntries];
+      next.splice(index, 1);
+      return {
+        irrigationEntries: next as NonNullable<UpdateLandLifecycleInput["irrigationEntries"]>,
+      };
+    }
+    case "roguing": {
+      const next = [...lifecycle.roguingEntries];
+      next.splice(index, 1);
+      return {
+        roguingEntries: next as NonNullable<UpdateLandLifecycleInput["roguingEntries"]>,
+      };
+    }
+    case "stripTest": {
+      const next = [...lifecycle.stripTestEntries];
+      next.splice(index, 1);
+      return {
+        stripTestEntries: next as NonNullable<UpdateLandLifecycleInput["stripTestEntries"]>,
+      };
+    }
+    case "dehaulming": {
+      const next = [...lifecycle.dehalmingEntries];
+      next.splice(index, 1);
+      return {
+        dehalmingEntries: next as NonNullable<UpdateLandLifecycleInput["dehalmingEntries"]>,
+      };
+    }
+    default:
+      return {};
+  }
+}
+
 function StepEntrySheet({
   open,
   onOpenChange,
   stepKey,
+  editIndex: editIndexProp,
   lifecycle,
   onSubmit,
   isPending,
@@ -586,10 +644,15 @@ function StepEntrySheet({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   stepKey: JourneyStepKey | null;
+  /** When set, form loads that entry and save replaces it in the array. */
+  editIndex?: number | null;
   lifecycle: LandLifecyclePayload;
   onSubmit: (body: UpdateLandLifecycleInput) => void;
   isPending: boolean;
 }) {
+  const editIndex = editIndexProp ?? null;
+  const isEditMode = editIndex != null && editIndex >= 0;
+
   const [dateYmd, setDateYmd] = React.useState(() => format(new Date(), "yyyy-MM-dd"));
   const [variety, setVariety] = React.useState("");
   const [quantity, setQuantity] = React.useState("");
@@ -598,21 +661,102 @@ function StepEntrySheet({
   const [decisionNotes, setDecisionNotes] = React.useState("");
   const [readyForDehaulming, setReadyForDehaulming] = React.useState<"yes" | "no" | "">("");
   const [stepImageUrl, setStepImageUrl] = React.useState<string | null>(null);
+  /** True when the loaded entry had an image (so clearing can remove it on save). */
+  const [hadInitialImage, setHadInitialImage] = React.useState(false);
   /** Sync URL for submit — state alone can lag behind upload completion if Save is pressed immediately. */
   const stepImageUrlRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     if (!open || !stepKey) return;
-    setDateYmd(format(new Date(), "yyyy-MM-dd"));
-    setVariety("");
-    setQuantity("");
-    setNotes("");
-    setObservations("");
-    setDecisionNotes("");
-    setReadyForDehaulming("");
-    setStepImageUrl(null);
-    stepImageUrlRef.current = null;
-  }, [open, stepKey]);
+
+    if (!isEditMode) {
+      setDateYmd(format(new Date(), "yyyy-MM-dd"));
+      setVariety("");
+      setQuantity("");
+      setNotes("");
+      setObservations("");
+      setDecisionNotes("");
+      setReadyForDehaulming("");
+      setHadInitialImage(false);
+      setStepImageUrl(null);
+      stepImageUrlRef.current = null;
+      return;
+    }
+
+    const idx = editIndex as number;
+    const load = (entry: unknown) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) return;
+      const e = entry as Record<string, unknown>;
+      const img =
+        typeof e.imageUrl === "string" && e.imageUrl.trim() ? e.imageUrl.trim() : null;
+      setHadInitialImage(img != null);
+      setStepImageUrl(img);
+      stepImageUrlRef.current = img;
+    };
+
+    if (stepKey === "plantation") {
+      const e = lifecycle.plantationEntries[idx];
+      if (e && typeof e === "object" && !Array.isArray(e)) {
+        const o = e as Record<string, unknown>;
+        setDateYmd(unknownDateToYmd(o.plantationDate));
+        setVariety(typeof o.variety === "string" ? o.variety : "");
+        setQuantity(typeof o.quantity === "number" ? String(o.quantity) : "");
+        setNotes(typeof o.notes === "string" ? o.notes : "");
+        load(e);
+      }
+      return;
+    }
+    if (stepKey === "irrigation") {
+      const e = lifecycle.irrigationEntries[idx];
+      if (e && typeof e === "object" && !Array.isArray(e)) {
+        const o = e as Record<string, unknown>;
+        setDateYmd(unknownDateToYmd(o.irrigationDate));
+        setNotes(typeof o.notes === "string" ? o.notes : "");
+        load(e);
+      }
+      return;
+    }
+    if (stepKey === "roguing") {
+      const e = lifecycle.roguingEntries[idx];
+      if (e && typeof e === "object" && !Array.isArray(e)) {
+        const o = e as Record<string, unknown>;
+        setDateYmd(unknownDateToYmd(o.roguingDate));
+        setObservations(typeof o.observations === "string" ? o.observations : "");
+        load(e);
+      }
+      return;
+    }
+    if (stepKey === "stripTest") {
+      const e = lifecycle.stripTestEntries[idx];
+      if (e && typeof e === "object" && !Array.isArray(e)) {
+        const o = e as Record<string, unknown>;
+        setDateYmd(unknownDateToYmd(o.stripTestDate));
+        setDecisionNotes(typeof o.decisionNotes === "string" ? o.decisionNotes : "");
+        if (o.isCropReadyForDehaulming === true) setReadyForDehaulming("yes");
+        else if (o.isCropReadyForDehaulming === false) setReadyForDehaulming("no");
+        else setReadyForDehaulming("");
+        load(e);
+      }
+      return;
+    }
+    if (stepKey === "dehaulming") {
+      const e = lifecycle.dehalmingEntries[idx];
+      if (e && typeof e === "object" && !Array.isArray(e)) {
+        const o = e as Record<string, unknown>;
+        setDateYmd(unknownDateToYmd(o.dehalmingDate));
+        setNotes(typeof o.notes === "string" ? o.notes : "");
+        load(e);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- lifecycle omitted so background refetch does not reset the form
+  }, [open, stepKey, editIndex, isEditMode]);
+
+  function buildImagePatch(): Record<string, unknown> {
+    const uploaded = stepImageUrlRef.current ?? stepImageUrl;
+    if (uploaded != null) return { imageUrl: uploaded };
+    if (isEditMode && hadInitialImage) return { imageUrl: undefined };
+    return {};
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -623,9 +767,7 @@ function StepEntrySheet({
       return;
     }
     const d = new Date(date);
-
-    const uploaded = stepImageUrlRef.current ?? stepImageUrl;
-    const imagePatch = uploaded != null ? { imageUrl: uploaded } : {};
+    const imagePatch = buildImagePatch();
 
     if (stepKey === "plantation") {
       const q = Number.parseFloat(quantity);
@@ -637,100 +779,183 @@ function StepEntrySheet({
         toast.error("Enter a valid quantity");
         return;
       }
-      const plantationSubmitPayload: UpdateLandLifecycleInput = {
-        plantationEntries: [
-          ...(lifecycle.plantationEntries as NonNullable<
-            UpdateLandLifecycleInput["plantationEntries"]
-          >),
-          {
-            plantationDate: d,
-            variety: variety.trim(),
-            quantity: q,
-            notes: notes.trim() || undefined,
-            ...imagePatch,
-          },
-        ],
-      };
-      console.log("[land lifecycle] plantation entry submit payload", plantationSubmitPayload);
-      onSubmit(plantationSubmitPayload);
+      const base = lifecycle.plantationEntries as NonNullable<
+        UpdateLandLifecycleInput["plantationEntries"]
+      >;
+      if (isEditMode && editIndex != null) {
+        const next = [...base];
+        const prev = next[editIndex] as Record<string, unknown>;
+        next[editIndex] = {
+          ...prev,
+          plantationDate: d,
+          variety: variety.trim(),
+          quantity: q,
+          notes: notes.trim() || undefined,
+          ...imagePatch,
+        } as (typeof next)[number];
+        onSubmit({ plantationEntries: next });
+      } else {
+        onSubmit({
+          plantationEntries: [
+            ...base,
+            {
+              plantationDate: d,
+              variety: variety.trim(),
+              quantity: q,
+              notes: notes.trim() || undefined,
+              ...imagePatch,
+            },
+          ],
+        });
+      }
       onOpenChange(false);
       return;
     }
 
     if (stepKey === "irrigation") {
-      onSubmit({
-        irrigationEntries: [
-          ...(lifecycle.irrigationEntries as NonNullable<
-            UpdateLandLifecycleInput["irrigationEntries"]
-          >),
-          {
-            irrigationDate: d,
-            notes: notes.trim() || undefined,
-            media: { photos: [], videos: [] },
-            ...imagePatch,
-          },
-        ],
-      });
+      const base = lifecycle.irrigationEntries as NonNullable<
+        UpdateLandLifecycleInput["irrigationEntries"]
+      >;
+      if (isEditMode && editIndex != null) {
+        const next = [...base];
+        const prev = next[editIndex] as Record<string, unknown>;
+        const mediaRaw = prev.media;
+        const media =
+          mediaRaw && typeof mediaRaw === "object" && !Array.isArray(mediaRaw)
+            ? {
+                photos: [...((mediaRaw as { photos?: string[] }).photos ?? [])],
+                videos: [...((mediaRaw as { videos?: string[] }).videos ?? [])],
+              }
+            : { photos: [] as string[], videos: [] as string[] };
+        next[editIndex] = {
+          ...prev,
+          irrigationDate: d,
+          notes: notes.trim() || undefined,
+          media,
+          ...imagePatch,
+        } as (typeof next)[number];
+        onSubmit({ irrigationEntries: next });
+      } else {
+        onSubmit({
+          irrigationEntries: [
+            ...base,
+            {
+              irrigationDate: d,
+              notes: notes.trim() || undefined,
+              media: { photos: [], videos: [] },
+              ...imagePatch,
+            },
+          ],
+        });
+      }
       onOpenChange(false);
       return;
     }
 
     if (stepKey === "roguing") {
-      onSubmit({
-        roguingEntries: [
-          ...(lifecycle.roguingEntries as NonNullable<UpdateLandLifecycleInput["roguingEntries"]>),
-          {
-            roguingDate: d,
-            observations: observations.trim() || undefined,
-            ...imagePatch,
-          },
-        ],
-      });
+      const base = lifecycle.roguingEntries as NonNullable<
+        UpdateLandLifecycleInput["roguingEntries"]
+      >;
+      if (isEditMode && editIndex != null) {
+        const next = [...base];
+        const prev = next[editIndex] as Record<string, unknown>;
+        next[editIndex] = {
+          ...prev,
+          roguingDate: d,
+          observations: observations.trim() || undefined,
+          ...imagePatch,
+        } as (typeof next)[number];
+        onSubmit({ roguingEntries: next });
+      } else {
+        onSubmit({
+          roguingEntries: [
+            ...base,
+            {
+              roguingDate: d,
+              observations: observations.trim() || undefined,
+              ...imagePatch,
+            },
+          ],
+        });
+      }
       onOpenChange(false);
       return;
     }
 
     if (stepKey === "stripTest") {
-      onSubmit({
-        stripTestEntries: [
-          ...(lifecycle.stripTestEntries as NonNullable<
-            UpdateLandLifecycleInput["stripTestEntries"]
-          >),
-          {
-            stripTestDate: d,
-            decisionNotes: decisionNotes.trim() || undefined,
-            isCropReadyForDehaulming:
-              readyForDehaulming === "yes"
-                ? true
-                : readyForDehaulming === "no"
-                  ? false
-                  : undefined,
-            ...imagePatch,
-          },
-        ],
-      });
+      const base = lifecycle.stripTestEntries as NonNullable<
+        UpdateLandLifecycleInput["stripTestEntries"]
+      >;
+      if (isEditMode && editIndex != null) {
+        const next = [...base];
+        const prev = next[editIndex] as Record<string, unknown>;
+        next[editIndex] = {
+          ...prev,
+          stripTestDate: d,
+          decisionNotes: decisionNotes.trim() || undefined,
+          isCropReadyForDehaulming:
+            readyForDehaulming === "yes"
+              ? true
+              : readyForDehaulming === "no"
+                ? false
+                : undefined,
+          ...imagePatch,
+        } as (typeof next)[number];
+        onSubmit({ stripTestEntries: next });
+      } else {
+        onSubmit({
+          stripTestEntries: [
+            ...base,
+            {
+              stripTestDate: d,
+              decisionNotes: decisionNotes.trim() || undefined,
+              isCropReadyForDehaulming:
+                readyForDehaulming === "yes"
+                  ? true
+                  : readyForDehaulming === "no"
+                    ? false
+                    : undefined,
+              ...imagePatch,
+            },
+          ],
+        });
+      }
       onOpenChange(false);
       return;
     }
 
     if (stepKey === "dehaulming") {
-      onSubmit({
-        dehalmingEntries: [
-          ...(lifecycle.dehalmingEntries as NonNullable<
-            UpdateLandLifecycleInput["dehalmingEntries"]
-          >),
-          {
-            dehalmingDate: d,
-            notes: notes.trim() || undefined,
-            ...imagePatch,
-          },
-        ],
-      });
+      const base = lifecycle.dehalmingEntries as NonNullable<
+        UpdateLandLifecycleInput["dehalmingEntries"]
+      >;
+      if (isEditMode && editIndex != null) {
+        const next = [...base];
+        const prev = next[editIndex] as Record<string, unknown>;
+        next[editIndex] = {
+          ...prev,
+          dehalmingDate: d,
+          notes: notes.trim() || undefined,
+          ...imagePatch,
+        } as (typeof next)[number];
+        onSubmit({ dehalmingEntries: next });
+      } else {
+        onSubmit({
+          dehalmingEntries: [
+            ...base,
+            {
+              dehalmingDate: d,
+              notes: notes.trim() || undefined,
+              ...imagePatch,
+            },
+          ],
+        });
+      }
       onOpenChange(false);
     }
   }
 
-  const title = stepKey ? JOURNEY_STEPS.find((s) => s.key === stepKey)?.title : "Add entry";
+  const title = stepKey ? JOURNEY_STEPS.find((s) => s.key === stepKey)?.title : "entry";
+  const sheetVerb = isEditMode ? "Edit" : "Add";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -740,9 +965,13 @@ function StepEntrySheet({
         showCloseButton
       >
         <SheetHeader className="border-b border-border/60 px-4 pt-2 pb-4">
-          <SheetTitle>Add {title}</SheetTitle>
+          <SheetTitle>
+            {sheetVerb} {title}
+          </SheetTitle>
           <SheetDescription>
-            This is saved to this land&apos;s season. You can add more entries anytime.
+            {isEditMode
+              ? "Update this log. Other entries for this stage stay as they are."
+              : "This is saved to this land's season. You can add more entries anytime."}
           </SheetDescription>
         </SheetHeader>
         <form
@@ -897,6 +1126,8 @@ function StepEntrySheet({
                   <Loader2Icon className="size-4 animate-spin" aria-hidden />
                   Saving…
                 </>
+              ) : isEditMode ? (
+                "Save changes"
               ) : (
                 "Save entry"
               )}
@@ -920,6 +1151,11 @@ function LifecycleOverview({
   onUpdateLifecycle: (body: UpdateLandLifecycleInput) => void;
 }) {
   const [addStep, setAddStep] = React.useState<JourneyStepKey | null>(null);
+  const [editEntry, setEditEntry] = React.useState<{
+    step: JourneyStepKey;
+    index: number;
+  } | null>(null);
+  const [viewStep, setViewStep] = React.useState<JourneyStepKey | null>(null);
 
   const seasonLabel =
     lifecycle.season &&
@@ -1106,12 +1342,27 @@ function LifecycleOverview({
                       <Badge variant={n > 0 ? "secondary" : "outline"} className="tabular-nums">
                         {n} {n === 1 ? "entry" : "entries"}
                       </Badge>
+                      {n > 0 ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="min-h-11 min-w-11 rounded-full"
+                          onClick={() => setViewStep(step.key)}
+                          aria-label={`View ${step.title} entries`}
+                        >
+                          <EyeIcon className="size-4" aria-hidden />
+                        </Button>
+                      ) : null}
                       <Button
                         type="button"
                         variant="outline"
                         size="icon"
                         className="min-h-11 min-w-11 rounded-full"
-                        onClick={() => setAddStep(step.key)}
+                        onClick={() => {
+                          setEditEntry(null);
+                          setAddStep(step.key);
+                        }}
                         aria-label={`Add ${step.title} entry`}
                       >
                         <PlusIcon className="size-4" aria-hidden />
@@ -1126,14 +1377,37 @@ function LifecycleOverview({
       </ul>
 
       <StepEntrySheet
-        open={addStep != null}
+        open={addStep != null || editEntry != null}
         onOpenChange={(o) => {
-          if (!o) setAddStep(null);
+          if (!o) {
+            setAddStep(null);
+            setEditEntry(null);
+          }
         }}
-        stepKey={addStep}
+        stepKey={addStep ?? editEntry?.step ?? null}
+        editIndex={editEntry?.index ?? null}
         lifecycle={lifecycle}
         onSubmit={onUpdateLifecycle}
         isPending={isUpdating}
+      />
+      <StepEntriesViewSheet
+        open={viewStep != null}
+        onOpenChange={(o) => {
+          if (!o) setViewStep(null);
+        }}
+        stepKey={viewStep}
+        stepTitle={JOURNEY_STEPS.find((s) => s.key === viewStep)?.title ?? "Step"}
+        lifecycle={lifecycle}
+        isPending={isUpdating}
+        onEdit={(stepKey, index) => {
+          setViewStep(null);
+          setAddStep(null);
+          setEditEntry({ step: stepKey as JourneyStepKey, index });
+        }}
+        onDelete={(stepKey, index) => {
+          onUpdateLifecycle(deleteLifecycleEntryAt(lifecycle, stepKey as JourneyStepKey, index));
+          setViewStep(null);
+        }}
       />
     </div>
   );
