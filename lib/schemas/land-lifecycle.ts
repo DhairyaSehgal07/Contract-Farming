@@ -9,6 +9,8 @@ const optionalObjectId = z
   .regex(objectIdRegex, "Invalid ObjectId")
   .optional();
 
+const optionalPlainText = z.string().nullish();
+
 const attachmentSetSchema = z.object({
   photos: z.array(z.string()).default([]),
   videos: z.array(z.string()).default([]),
@@ -33,12 +35,14 @@ const plantationEntrySchema = z.object({
   spacingCm: z.string().trim().optional(),
   plantingPattern: z.string().trim().optional(),
   bagsUsed: z.number().min(0).optional(),
+  imageUrl: optionalPlainText,
   recordedByUserId: optionalObjectId,
 });
 
 const irrigationEntrySchema = z.object({
   irrigationDate: z.coerce.date(),
   notes: z.string().trim().optional(),
+  imageUrl: optionalPlainText,
   media: attachmentSetSchema.optional(),
   adminManagerInstructions: z.string().trim().optional(),
   recordedByUserId: optionalObjectId,
@@ -47,6 +51,7 @@ const irrigationEntrySchema = z.object({
 
 const roguingEntrySchema = z.object({
   roguingDate: z.coerce.date(),
+  imageUrl: optionalPlainText,
   results: z.string().trim().optional(),
   observations: z.string().trim().optional(),
   virusInfectedPlantCount: z.number().min(0).optional(),
@@ -58,6 +63,7 @@ const roguingEntrySchema = z.object({
 
 const stripTestEntrySchema = z.object({
   stripTestDate: z.coerce.date(),
+  imageUrl: optionalPlainText,
   stripLengthMeter: z.number().min(0).optional(),
   stripAreaSqm: z.number().min(0).optional(),
   goliTuberCount: z.number().min(0).optional(),
@@ -71,6 +77,7 @@ const stripTestEntrySchema = z.object({
 
 const dehalmingEntrySchema = z.object({
   dehalmingDate: z.coerce.date(),
+  imageUrl: optionalPlainText,
   notes: z.string().trim().optional(),
   recordedByUserId: optionalObjectId,
 });

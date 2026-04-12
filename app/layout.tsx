@@ -44,7 +44,7 @@ export default function RootLayout({
         inter.variable,
       )}
     >
-      <body className="flex min-h-full flex-col">
+      <body className="flex min-h-full flex-col" suppressHydrationWarning>
         <NextSSRPlugin routerConfig={extractRouterConfig(ourFileRouter)} />
         <Providers>{children}</Providers>
       </body>

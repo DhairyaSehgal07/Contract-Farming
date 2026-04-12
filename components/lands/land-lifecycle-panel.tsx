@@ -55,6 +55,7 @@ import type {
   RegisterLandLifecycleInput,
   UpdateLandLifecycleInput,
 } from "@/lib/schemas/land-lifecycle";
+import { UploadButton } from "@/lib/uploadthing";
 import { cn } from "@/lib/utils";
 
 type LandLifecyclePayload = {
@@ -488,6 +489,92 @@ const journeyCardClasses = cn(
   "dark:border-border/50 dark:bg-card/40",
 );
 
+/** Resolve public file URL from UploadThing client result (prefer server callback URL, then CDN fields). */
+function pickUploadThingPublicUrl(file: {
+  ufsUrl?: string;
+  url?: string;
+  appUrl?: string;
+  serverData?: unknown;
+}): string | undefined {
+  const sd = file.serverData as { url?: string } | undefined;
+  if (typeof sd?.url === "string") return sd.url;
+  if (typeof file.ufsUrl === "string") return file.ufsUrl;
+  if (typeof file.url === "string") return file.url;
+  if (typeof file.appUrl === "string") return file.appUrl;
+  return undefined;
+}
+
+function StepEntryImageUpload({
+  imageUrl,
+  onUploaded,
+  onClear,
+}: {
+  imageUrl: string | null;
+  onUploaded: (url: string) => void;
+  onClear: () => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label className="text-sm font-medium">Photo (optional)</Label>
+      <p className="text-xs text-muted-foreground">
+        Upload a field photo to attach to this log. You can save without a photo.
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <UploadButton
+          endpoint="imageUploader"
+          onClientUploadComplete={(res) => {
+            const file = res[0];
+            const url = file ? pickUploadThingPublicUrl(file) : undefined;
+            if (url !== undefined) {
+              onUploaded(url);
+              toast.success("Image ready", {
+                description: "It will be saved when you tap Save entry.",
+              });
+            } else {
+              toast.error("Could not read image URL", {
+                description: "Try uploading again, then save the entry.",
+              });
+            }
+          }}
+          onUploadError={(error) => {
+            toast.error("Upload failed", { description: error.message });
+          }}
+          appearance={{
+            button:
+              "ut-ready:bg-primary ut-ready:hover:bg-primary/90 ut-uploading:cursor-not-allowed ut-uploading:bg-primary/70 ut-readying:bg-muted ut-readying:text-muted-foreground rounded-lg px-3 py-2 text-sm font-medium text-primary-foreground",
+            allowedContent: "ut-readying:text-muted-foreground text-xs",
+          }}
+          content={{
+            button: ({ ready, isUploading }) =>
+              ready ? (isUploading ? "Uploading…" : "Choose image") : "Preparing…",
+          }}
+        />
+        {imageUrl ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="min-h-11"
+            onClick={() => onClear()}
+          >
+            Remove photo
+          </Button>
+        ) : null}
+      </div>
+      {imageUrl ? (
+        <div className="overflow-hidden rounded-lg border border-border/60 bg-muted/20">
+          {/* eslint-disable-next-line @next/next/no-img-element -- remote UploadThing URL */}
+          <img
+            src={imageUrl}
+            alt="Selected upload preview"
+            className="max-h-48 w-full object-contain"
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function StepEntrySheet({
   open,
   onOpenChange,
@@ -510,6 +597,9 @@ function StepEntrySheet({
   const [observations, setObservations] = React.useState("");
   const [decisionNotes, setDecisionNotes] = React.useState("");
   const [readyForDehaulming, setReadyForDehaulming] = React.useState<"yes" | "no" | "">("");
+  const [stepImageUrl, setStepImageUrl] = React.useState<string | null>(null);
+  /** Sync URL for submit — state alone can lag behind upload completion if Save is pressed immediately. */
+  const stepImageUrlRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     if (!open || !stepKey) return;
@@ -520,6 +610,8 @@ function StepEntrySheet({
     setObservations("");
     setDecisionNotes("");
     setReadyForDehaulming("");
+    setStepImageUrl(null);
+    stepImageUrlRef.current = null;
   }, [open, stepKey]);
 
   function handleSubmit(e: React.FormEvent) {
@@ -532,6 +624,9 @@ function StepEntrySheet({
     }
     const d = new Date(date);
 
+    const uploaded = stepImageUrlRef.current ?? stepImageUrl;
+    const imagePatch = uploaded != null ? { imageUrl: uploaded } : {};
+
     if (stepKey === "plantation") {
       const q = Number.parseFloat(quantity);
       if (!variety.trim()) {
@@ -542,7 +637,7 @@ function StepEntrySheet({
         toast.error("Enter a valid quantity");
         return;
       }
-      onSubmit({
+      const plantationSubmitPayload: UpdateLandLifecycleInput = {
         plantationEntries: [
           ...(lifecycle.plantationEntries as NonNullable<
             UpdateLandLifecycleInput["plantationEntries"]
@@ -552,9 +647,12 @@ function StepEntrySheet({
             variety: variety.trim(),
             quantity: q,
             notes: notes.trim() || undefined,
+            ...imagePatch,
           },
         ],
-      });
+      };
+      console.log("[land lifecycle] plantation entry submit payload", plantationSubmitPayload);
+      onSubmit(plantationSubmitPayload);
       onOpenChange(false);
       return;
     }
@@ -569,6 +667,7 @@ function StepEntrySheet({
             irrigationDate: d,
             notes: notes.trim() || undefined,
             media: { photos: [], videos: [] },
+            ...imagePatch,
           },
         ],
       });
@@ -583,6 +682,7 @@ function StepEntrySheet({
           {
             roguingDate: d,
             observations: observations.trim() || undefined,
+            ...imagePatch,
           },
         ],
       });
@@ -605,6 +705,7 @@ function StepEntrySheet({
                 : readyForDehaulming === "no"
                   ? false
                   : undefined,
+            ...imagePatch,
           },
         ],
       });
@@ -621,6 +722,7 @@ function StepEntrySheet({
           {
             dehalmingDate: d,
             notes: notes.trim() || undefined,
+            ...imagePatch,
           },
         ],
       });
@@ -657,6 +759,20 @@ function StepEntrySheet({
               onChange={(v) => setDateYmd(pickerValueToYmd(v))}
               fullWidth
             />
+
+            {stepKey ? (
+              <StepEntryImageUpload
+                imageUrl={stepImageUrl}
+                onUploaded={(url) => {
+                  stepImageUrlRef.current = url;
+                  setStepImageUrl(url);
+                }}
+                onClear={() => {
+                  stepImageUrlRef.current = null;
+                  setStepImageUrl(null);
+                }}
+              />
+            ) : null}
 
             {stepKey === "plantation" ? (
               <>

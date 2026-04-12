@@ -32,12 +32,16 @@ export interface IPlantationEntry {
   spacingCm?: string;
   plantingPattern?: string;
   bagsUsed?: number;
+  /** Optional photo URL (e.g. UploadThing) for this log entry */
+  imageUrl?: string;
   recordedByUserId?: mongoose.Types.ObjectId;
 }
 
 export interface IIrrigationEntry {
   irrigationDate: Date;
   notes?: string;
+  /** Optional photo URL for this visit */
+  imageUrl?: string;
   media: IAttachmentSet;
   adminManagerInstructions?: string;
   recordedByUserId?: mongoose.Types.ObjectId;
@@ -46,6 +50,8 @@ export interface IIrrigationEntry {
 
 export interface IRoguingEntry {
   roguingDate: Date;
+  /** Optional photo URL for this inspection */
+  imageUrl?: string;
   results?: string;
   observations?: string;
   virusInfectedPlantCount?: number;
@@ -57,6 +63,8 @@ export interface IRoguingEntry {
 
 export interface IStripTestEntry {
   stripTestDate: Date;
+  /** Optional photo URL for this strip test */
+  imageUrl?: string;
   stripLengthMeter?: number;
   stripAreaSqm?: number;
   goliTuberCount?: number;
@@ -70,6 +78,8 @@ export interface IStripTestEntry {
 
 export interface IDehalmingEntry {
   dehalmingDate: Date;
+  /** Optional photo URL for this milestone */
+  imageUrl?: string;
   notes?: string;
   recordedByUserId?: mongoose.Types.ObjectId;
 }
@@ -126,6 +136,7 @@ const plantationEntrySchema = new Schema<IPlantationEntry>(
     spacingCm: { type: String, trim: true },
     plantingPattern: { type: String, trim: true },
     bagsUsed: { type: Number, min: 0 },
+    imageUrl: { type: String },
     recordedByUserId: {
       type: Schema.Types.ObjectId,
       ref: "StoreAdminUser",
@@ -139,6 +150,7 @@ const irrigationEntrySchema = new Schema<IIrrigationEntry>(
   {
     irrigationDate: { type: Date, required: true },
     notes: { type: String, trim: true },
+    imageUrl: { type: String },
     media: { type: attachmentSetSchema, default: { photos: [], videos: [] } },
     adminManagerInstructions: { type: String, trim: true },
     recordedByUserId: {
@@ -158,6 +170,7 @@ const irrigationEntrySchema = new Schema<IIrrigationEntry>(
 const roguingEntrySchema = new Schema<IRoguingEntry>(
   {
     roguingDate: { type: Date, required: true },
+    imageUrl: { type: String },
     results: { type: String, trim: true },
     observations: { type: String, trim: true },
     virusInfectedPlantCount: { type: Number, min: 0 },
@@ -176,6 +189,7 @@ const roguingEntrySchema = new Schema<IRoguingEntry>(
 const stripTestEntrySchema = new Schema<IStripTestEntry>(
   {
     stripTestDate: { type: Date, required: true },
+    imageUrl: { type: String },
     stripLengthMeter: { type: Number, min: 0 },
     stripAreaSqm: { type: Number, min: 0 },
     goliTuberCount: { type: Number, min: 0 },
@@ -196,6 +210,7 @@ const stripTestEntrySchema = new Schema<IStripTestEntry>(
 const dehalmingEntrySchema = new Schema<IDehalmingEntry>(
   {
     dehalmingDate: { type: Date, required: true },
+    imageUrl: { type: String },
     notes: { type: String, trim: true },
     recordedByUserId: {
       type: Schema.Types.ObjectId,

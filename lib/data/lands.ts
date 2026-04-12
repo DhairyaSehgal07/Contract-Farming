@@ -1,6 +1,7 @@
 import { Types } from "mongoose";
 
 import { connectToDatabase } from "@/lib/db";
+import "@/models/Farmer";
 import { Land } from "@/models/Land";
 import type { ILand, ILandArea, IGeoLocation } from "@/models/Land";
 import { Organization } from "@/models/Organization";

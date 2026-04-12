@@ -76,6 +76,55 @@ function buildLifecyclePatchSet(rawBody: unknown, parsed: Record<string, unknown
   return omitEmptyEntryArraysWhenMixedRequest(rawBody, picked);
 }
 
+/**
+ * Overlay `imageUrl` from the raw request onto validated entry objects (by array index).
+ * Defensive: ensures DB matches the wire payload if anything in the parse path drops optional fields.
+ */
+function mergeEntryImageUrlFromRaw(
+  rawEntry: unknown,
+  validatedEntry: unknown,
+): unknown {
+  if (
+    validatedEntry === null ||
+    typeof validatedEntry !== "object" ||
+    Array.isArray(validatedEntry)
+  ) {
+    return validatedEntry;
+  }
+  if (
+    rawEntry === null ||
+    typeof rawEntry !== "object" ||
+    Array.isArray(rawEntry)
+  ) {
+    return validatedEntry;
+  }
+  const rawUrl = (rawEntry as Record<string, unknown>).imageUrl;
+  if (typeof rawUrl !== "string") return validatedEntry;
+  return { ...(validatedEntry as Record<string, unknown>), imageUrl: rawUrl };
+}
+
+function mergeEntryArrayImageUrlsFromRawBody(
+  rawBody: unknown,
+  data: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!rawBody || typeof rawBody !== "object" || Array.isArray(rawBody)) {
+    return data;
+  }
+  const raw = rawBody as Record<string, unknown>;
+  const out = { ...data };
+  for (const key of LIFECYCLE_ENTRY_ARRAY_KEYS) {
+    if (!Object.prototype.hasOwnProperty.call(out, key)) continue;
+    const validatedArr = out[key];
+    const rawArr = raw[key];
+    if (!Array.isArray(validatedArr)) continue;
+    out[key] = validatedArr.map((entry, i) => {
+      const rawEntry = Array.isArray(rawArr) ? rawArr[i] : undefined;
+      return mergeEntryImageUrlFromRaw(rawEntry, entry);
+    });
+  }
+  return out;
+}
+
 function toIso(d: Date | undefined) {
   return d?.toISOString();
 }
@@ -120,6 +169,7 @@ function landLifecycleToPayload(doc: ILandLifecycle & { _id: Types.ObjectId }) {
       spacingCm: e.spacingCm,
       plantingPattern: e.plantingPattern,
       bagsUsed: e.bagsUsed,
+      imageUrl: e.imageUrl,
       recordedByUserId: e.recordedByUserId
         ? String(e.recordedByUserId)
         : undefined,
@@ -127,6 +177,7 @@ function landLifecycleToPayload(doc: ILandLifecycle & { _id: Types.ObjectId }) {
     irrigationEntries: (doc.irrigationEntries ?? []).map((e) => ({
       irrigationDate: e.irrigationDate.toISOString(),
       notes: e.notes,
+      imageUrl: e.imageUrl,
       media: attachmentToPayload(e.media),
       adminManagerInstructions: e.adminManagerInstructions,
       recordedByUserId: e.recordedByUserId
@@ -138,6 +189,7 @@ function landLifecycleToPayload(doc: ILandLifecycle & { _id: Types.ObjectId }) {
     })),
     roguingEntries: (doc.roguingEntries ?? []).map((e) => ({
       roguingDate: e.roguingDate.toISOString(),
+      imageUrl: e.imageUrl,
       results: e.results,
       observations: e.observations,
       virusInfectedPlantCount: e.virusInfectedPlantCount,
@@ -150,6 +202,7 @@ function landLifecycleToPayload(doc: ILandLifecycle & { _id: Types.ObjectId }) {
     })),
     stripTestEntries: (doc.stripTestEntries ?? []).map((e) => ({
       stripTestDate: e.stripTestDate.toISOString(),
+      imageUrl: e.imageUrl,
       stripLengthMeter: e.stripLengthMeter,
       stripAreaSqm: e.stripAreaSqm,
       goliTuberCount: e.goliTuberCount,
@@ -164,6 +217,7 @@ function landLifecycleToPayload(doc: ILandLifecycle & { _id: Types.ObjectId }) {
     })),
     dehalmingEntries: (doc.dehalmingEntries ?? []).map((e) => ({
       dehalmingDate: e.dehalmingDate.toISOString(),
+      imageUrl: e.imageUrl,
       notes: e.notes,
       recordedByUserId: e.recordedByUserId
         ? String(e.recordedByUserId)
@@ -269,6 +323,7 @@ export async function POST(
     }
 
     const body = await request.json();
+    console.log("[land lifecycle POST] raw JSON body:", JSON.stringify(body, null, 2));
     const parsed = registerLandLifecycleSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
@@ -308,6 +363,10 @@ export async function POST(
       );
     }
 
+    const merged = mergeEntryArrayImageUrlsFromRawBody(
+      body,
+      parsed.data as Record<string, unknown>,
+    );
     const {
       plantationEntries,
       irrigationEntries,
@@ -315,7 +374,7 @@ export async function POST(
       stripTestEntries,
       dehalmingEntries,
       ...rest
-    } = parsed.data;
+    } = merged;
 
     const created = await LandLifecycle.create({
       organizationId: orgObjectId,
@@ -388,6 +447,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
+    console.log("[land lifecycle PATCH] raw JSON body:", JSON.stringify(body, null, 2));
     const parsed = updateLandLifecycleSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
@@ -400,7 +460,10 @@ export async function PATCH(
       );
     }
 
-    const setPayload = buildLifecyclePatchSet(body, parsed.data as Record<string, unknown>);
+    const setPayload = mergeEntryArrayImageUrlsFromRawBody(
+      body,
+      buildLifecyclePatchSet(body, parsed.data as Record<string, unknown>),
+    );
 
     if (Object.keys(setPayload).length === 0) {
       return NextResponse.json(
@@ -425,7 +488,7 @@ export async function PATCH(
     const updated = await LandLifecycle.findOneAndUpdate(
       { landId: landObjectId, organizationId: orgObjectId },
       { $set: setPayload },
-      { new: true, runValidators: true },
+      { returnDocument: "after", runValidators: true },
     ).lean();
 
     if (!updated) {
