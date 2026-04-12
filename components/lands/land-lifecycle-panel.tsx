@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/sheet";
 import { DatePicker } from "@/components/ui/date-picker";
 import { NumberInput } from "@/components/ui/number-input";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "@/components/ui/sonner";
 import { Textarea } from "@/components/ui/textarea";
 import type { LandListItem } from "@/lib/data/lands";
@@ -93,7 +94,6 @@ const JOURNEY_STEPS = [
       "Planting dates, variety, seed quantity, and optional field notes — you can log multiple plantings.",
     icon: SproutIcon,
     count: (l: LandLifecyclePayload) => l.plantationEntries.length,
-    entries: (l: LandLifecyclePayload) => l.plantationEntries,
   },
   {
     key: "irrigation",
@@ -102,7 +102,6 @@ const JOURNEY_STEPS = [
       "Timeline of waterings with photos, videos, and notes. Managers can leave instructions.",
     icon: DropletsIcon,
     count: (l: LandLifecyclePayload) => l.irrigationEntries.length,
-    entries: (l: LandLifecyclePayload) => l.irrigationEntries,
   },
   {
     key: "roguing",
@@ -111,7 +110,6 @@ const JOURNEY_STEPS = [
       "Field inspections: results, observations, and quality signals from the crop row.",
     icon: SearchIcon,
     count: (l: LandLifecyclePayload) => l.roguingEntries.length,
-    entries: (l: LandLifecyclePayload) => l.roguingEntries,
   },
   {
     key: "stripTest",
@@ -120,7 +118,6 @@ const JOURNEY_STEPS = [
       "Visit checks (strip tests): tuber counts, sizes, and readiness for dehaulming.",
     icon: RulerIcon,
     count: (l: LandLifecyclePayload) => l.stripTestEntries.length,
-    entries: (l: LandLifecyclePayload) => l.stripTestEntries,
   },
   {
     key: "dehaulming",
@@ -128,28 +125,10 @@ const JOURNEY_STEPS = [
     description: "Record when tops are cut or crop is lifted — key milestone before harvest.",
     icon: LeafIcon,
     count: (l: LandLifecyclePayload) => l.dehalmingEntries.length,
-    entries: (l: LandLifecyclePayload) => l.dehalmingEntries,
   },
 ] as const;
 
 type JourneyStepKey = (typeof JOURNEY_STEPS)[number]["key"];
-
-const STEP_DATE_FIELD: Record<JourneyStepKey, string> = {
-  plantation: "plantationDate",
-  irrigation: "irrigationDate",
-  roguing: "roguingDate",
-  stripTest: "stripTestDate",
-  dehaulming: "dehalmingDate",
-};
-
-function sortEntriesByDateDesc(entries: unknown[], stepKey: JourneyStepKey): unknown[] {
-  const field = STEP_DATE_FIELD[stepKey];
-  return [...entries].sort((a, b) => {
-    const ta = new Date(String((a as Record<string, unknown>)[field])).getTime();
-    const tb = new Date(String((b as Record<string, unknown>)[field])).getTime();
-    return (Number.isNaN(tb) ? 0 : tb) - (Number.isNaN(ta) ? 0 : ta);
-  });
-}
 
 function isoToDateInput(iso?: string): string {
   if (!iso) return "";
@@ -509,24 +488,6 @@ const journeyCardClasses = cn(
   "dark:border-border/50 dark:bg-card/40",
 );
 
-function formatEntryDetailLine(stepKey: JourneyStepKey, entry: unknown): string {
-  const e = entry as Record<string, unknown>;
-  switch (stepKey) {
-    case "plantation":
-      return `${(e.variety as string) || "—"} · ${e.quantity != null ? `${e.quantity} bags` : "—"}`;
-    case "irrigation":
-      return (e.notes as string)?.trim() || "Irrigation logged";
-    case "roguing":
-      return (e.observations as string)?.trim() || (e.results as string)?.trim() || "Inspection logged";
-    case "stripTest":
-      return (e.decisionNotes as string)?.trim() || "Strip test logged";
-    case "dehaulming":
-      return (e.notes as string)?.trim() || "Dehaulming logged";
-    default:
-      return "";
-  }
-}
-
 function StepEntrySheet({
   open,
   onOpenChange,
@@ -857,17 +818,18 @@ function LifecycleOverview({
 
   const stepsWithActivity = JOURNEY_STEPS.filter((s) => s.count(lifecycle) > 0).length;
   const progressPct = Math.round((stepsWithActivity / JOURNEY_STEPS.length) * 100);
+  const progressLabel = `${stepsWithActivity} of ${JOURNEY_STEPS.length} stages with at least one entry`;
 
   return (
-    <div className="space-y-10">
-      <div className="mx-auto max-w-2xl text-center">
+    <div className="space-y-8">
+      <div>
         <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">Season journey</p>
         <h2 className="mt-3 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
           From plantation to dehaulming
         </h2>
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
-          Each stage mirrors how your team works in the field. Log visits as you go — progress reflects
-          how many stages already have at least one entry.
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+          Stages match how your team works in the field. Use + on a step to log visits — progress shows
+          how many stages have at least one entry.
         </p>
       </div>
 
@@ -878,19 +840,13 @@ function LifecycleOverview({
             {stepsWithActivity}/{JOURNEY_STEPS.length} stages started · {totalLogged} total logs
           </span>
         </div>
-        <div
-          className="h-2.5 overflow-hidden rounded-full bg-muted"
-          role="progressbar"
-          aria-valuenow={progressPct}
-          aria-valuemin={0}
-          aria-valuemax={100}
+        <Progress
+          value={progressPct}
+          max={100}
+          className="h-2.5"
           aria-label="Crop journey progress"
-        >
-          <div
-            className="h-full rounded-full bg-primary transition-[width] duration-300 ease-out"
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
+          aria-valuetext={progressLabel}
+        />
       </div>
 
       <div className="overflow-hidden rounded-xl border border-border/60 bg-card/80 shadow-sm ring-1 ring-border/40 dark:bg-card/50">
@@ -979,88 +935,74 @@ function LifecycleOverview({
         </div>
       </div>
 
-      <ul className="space-y-6 sm:space-y-8">
-        {JOURNEY_STEPS.map((step) => {
+      <ul className="relative space-y-0">
+        {JOURNEY_STEPS.map((step, index) => {
           const Icon = step.icon;
           const n = step.count(lifecycle);
-          const rawEntries = step.entries(lifecycle);
-          const entries = sortEntriesByDateDesc(rawEntries, step.key);
+          const stepNo = String(index + 1).padStart(2, "0");
+          const isLast = index === JOURNEY_STEPS.length - 1;
+          const isComplete = n > 0;
+          /** Segment below this step is “filled” once this step has an entry (progress toward the next). */
+          const connectorComplete = isComplete;
           return (
             <li
               key={step.key}
-              className="grid gap-4 lg:grid-cols-[minmax(0,320px)_1fr] lg:items-stretch lg:gap-6"
+              className="flex gap-3 pb-8 last:pb-0 sm:gap-4 sm:pb-10 sm:last:pb-0"
             >
-              <div
-                className={cn(
-                  journeyCardClasses,
-                  "group hover:border-primary/20 hover:bg-card hover:shadow-md dark:hover:border-primary/25",
-                )}
-              >
-                <div className="flex gap-4">
+              <div className="flex w-11 shrink-0 flex-col items-center self-stretch sm:w-12">
+                <div
+                  className={cn(
+                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border shadow-sm transition-colors duration-300 ease-out",
+                    isComplete
+                      ? "border-primary bg-primary text-primary-foreground ring-1 ring-primary/25"
+                      : "border-border/60 bg-card text-primary ring-1 ring-primary/10 dark:bg-card/80",
+                  )}
+                >
+                  <Icon className="size-5" aria-hidden strokeWidth={1.75} />
+                </div>
+                {!isLast ? (
                   <div
+                    aria-hidden
                     className={cn(
-                      "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
-                      "bg-linear-to-br from-primary/12 to-primary/5 text-primary ring-1 ring-primary/15",
-                      "transition-transform duration-200 ease-out group-hover:scale-105",
+                      "mt-2 w-px flex-1 min-h-6 transition-colors duration-300 ease-out",
+                      connectorComplete ? "bg-primary" : "bg-border/60",
                     )}
-                  >
-                    <Icon className="size-5" aria-hidden strokeWidth={1.75} />
-                  </div>
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h3 className="text-[0.9375rem] font-semibold tracking-tight text-foreground">
-                          {step.title}
-                        </h3>
-                        <Badge variant={n > 0 ? "secondary" : "outline"} className="mt-1.5 tabular-nums">
-                          {n} {n === 1 ? "entry" : "entries"}
-                        </Badge>
-                      </div>
+                  />
+                ) : null}
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div
+                  className={cn(
+                    journeyCardClasses,
+                    "group hover:border-primary/20 hover:bg-card hover:shadow-md dark:hover:border-primary/25",
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 space-y-2">
+                      <h3 className="text-[0.9375rem] font-semibold tracking-tight text-foreground">
+                        <span className="tabular-nums text-muted-foreground">{stepNo}</span>{" "}
+                        {step.title}
+                      </h3>
+                      <p className="text-sm leading-relaxed text-muted-foreground">{step.description}</p>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
+                      <Badge variant={n > 0 ? "secondary" : "outline"} className="tabular-nums">
+                        {n} {n === 1 ? "entry" : "entries"}
+                      </Badge>
                       <Button
                         type="button"
                         variant="outline"
                         size="icon"
-                        className="min-h-11 min-w-11 shrink-0 rounded-full"
+                        className="min-h-11 min-w-11 rounded-full"
                         onClick={() => setAddStep(step.key)}
                         aria-label={`Add ${step.title} entry`}
                       >
                         <PlusIcon className="size-4" aria-hidden />
                       </Button>
                     </div>
-                    <p className="text-sm leading-relaxed text-muted-foreground">{step.description}</p>
                   </div>
                 </div>
-              </div>
-
-              <div className={cn(journeyCardClasses, "flex min-h-[140px] flex-col")}>
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Logged visits
-                </p>
-                {entries.length === 0 ? (
-                  <p className="mt-3 flex flex-1 items-center text-sm text-muted-foreground">
-                    No entries yet — use + to add details for this step.
-                  </p>
-                ) : (
-                  <ul className="mt-3 max-h-72 space-y-3 overflow-y-auto pr-1">
-                    {entries.map((entry, idx) => {
-                      const field = STEP_DATE_FIELD[step.key];
-                      const iso = String((entry as Record<string, unknown>)[field]);
-                      return (
-                        <li
-                          key={`${step.key}-${iso}-${idx}`}
-                          className="rounded-xl border border-border/50 bg-background/60 px-3 py-2.5 dark:bg-background/40"
-                        >
-                          <p className="text-xs font-medium text-primary tabular-nums">
-                            {formatDisplayDate(iso)}
-                          </p>
-                          <p className="mt-1 text-sm leading-snug text-foreground">
-                            {formatEntryDetailLine(step.key, entry)}
-                          </p>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
               </div>
             </li>
           );

@@ -22,7 +22,6 @@ import {
   ArrowUpDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  EyeIcon,
   MapPinIcon,
   MoreHorizontalIcon,
   PencilIcon,
@@ -301,27 +300,6 @@ export function AdminLandsDataTable({ initialLands, farmers }: AdminLandsDataTab
           new Date(b.original.createdAt).getTime(),
       },
       {
-        id: "view",
-        enableHiding: false,
-        header: () => <span className="sr-only">View</span>,
-        cell: ({ row }) => {
-          const land = row.original;
-          return (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="min-h-9 min-w-9"
-              aria-label={`View ${land.name}`}
-              onClick={() => router.push(`/admin/lands/${land.id}`)}
-            >
-              <EyeIcon className="size-4" aria-hidden />
-            </Button>
-          );
-        },
-        enableSorting: false,
-      },
-      {
         id: "actions",
         enableHiding: false,
         cell: ({ row }) => {
@@ -335,6 +313,7 @@ export function AdminLandsDataTable({ initialLands, farmers }: AdminLandsDataTab
                   size="icon-sm"
                   className="min-h-9 min-w-9"
                   aria-label={`Actions for ${land.name}`}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   <MoreHorizontalIcon className="size-4" aria-hidden />
                 </Button>
@@ -359,7 +338,7 @@ export function AdminLandsDataTable({ initialLands, farmers }: AdminLandsDataTab
         },
       },
     ],
-    [router],
+    [],
   );
 
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table manages table state internally
@@ -487,7 +466,6 @@ export function AdminLandsDataTable({ initialLands, farmers }: AdminLandsDataTab
                             geo: "GPS",
                             isActive: "Status",
                             createdAt: "Added",
-                            view: "View",
                           };
                           return (
                             <DropdownMenuCheckboxItem
@@ -525,18 +503,38 @@ export function AdminLandsDataTable({ initialLands, farmers }: AdminLandsDataTab
                   </TableHeader>
                   <TableBody>
                     {table.getRowModel().rows?.length ? (
-                      table.getRowModel().rows.map((row) => (
-                        <TableRow
-                          key={row.id}
-                          data-state={row.getIsSelected() && "selected"}
-                        >
-                          {row.getVisibleCells().map((cell) => (
-                            <TableCell key={cell.id}>
-                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      ))
+                      table.getRowModel().rows.map((row) => {
+                        const land = row.original;
+                        return (
+                          <TableRow
+                            key={row.id}
+                            data-state={row.getIsSelected() && "selected"}
+                            className="cursor-pointer hover:bg-muted/50"
+                            tabIndex={0}
+                            aria-label={`Open ${land.name}`}
+                            onClick={() => router.push(`/admin/lands/${land.id}`)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                router.push(`/admin/lands/${land.id}`);
+                              }
+                            }}
+                          >
+                            {row.getVisibleCells().map((cell) => (
+                              <TableCell
+                                key={cell.id}
+                                onClick={
+                                  cell.column.id === "actions"
+                                    ? (ev) => ev.stopPropagation()
+                                    : undefined
+                                }
+                              >
+                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        );
+                      })
                     ) : (
                       <TableRow>
                         <TableCell colSpan={columns.length} className="h-24 text-center">
